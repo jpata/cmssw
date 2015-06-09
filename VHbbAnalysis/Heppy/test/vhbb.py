@@ -39,8 +39,7 @@ treeProducer= cfg.Analyzer(
                  NTupleVariable("lheHT",  lambda ev: ev.lheHT, float,mcOnly=True, help="HT at LHE level"),
                  NTupleVariable("genTTHtoTauTauDecayMode", lambda ev: ev.genTTHtoTauTauDecayMode, int,mcOnly=True, help="gen level ttH, H -> tautau decay mode"),
                  NTupleVariable("totSoftActivityJets", lambda ev: len([ x for x in ev.softActivityJets if x.pt()> 2 ] ), int, help="number of jets from soft activity with pt>2Gev"),
-        NTupleVariable("ttCls",  lambda ev: ev.ttbarCls, float,mcOnly=True, help="ttbar classification via GeNHFHadronMatcher"),
-
+        NTupleVariable("ttCls",  lambda ev: getattr(ev, "ttbarCls", -1), float,mcOnly=True, help="ttbar classification via GeNHFHadronMatcher"),
 	],
 	globalObjects = {
           "met"    : NTupleObject("met",     metType, help="PF E_{T}^{miss}, after default type 1 corrections"),
@@ -75,7 +74,8 @@ treeProducer= cfg.Analyzer(
                 "goodVertices"    : NTupleCollection("primaryVertices", primaryVertexType, 4, help="first four PVs"),
 
 		#dump of gen objects
-                "genJetsHadronMatcher"    : NTupleCollection("GenJet",   genJetType, 15, help="Generated jets with hadron matching, sorted by pt descending",filter=lambda x: x.pt() > 20,mcOnly=True),
+                #"genJetsHadronMatcher"    : NTupleCollection("GenJet",   genJetType, 15, help="Generated jets with hadron matching, sorted by pt descending",filter=lambda x: x.pt() > 20,mcOnly=True),
+                "genJets"    : NTupleCollection("GenJet",   genParticleType, 15, help="Generated jets with hadron matching, sorted by pt descending",filter=lambda x: x.pt() > 20,mcOnly=True),
                 "gentopquarks"    : NTupleCollection("GenTop",     genParticleType, 4, help="Generated top quarks from hard scattering"),
                 "gennusFromTop"    : NTupleCollection("GenNuFromTop",     genParticleType, 4, help="Generated neutrino from t->W decay"),
                 "genbquarksFromH"      : NTupleCollection("GenBQuarkFromH",  genParticleType, 4, help="Generated bottom quarks from Higgs decays"),
@@ -99,6 +99,26 @@ shifted_met_keys = ["met_shifted_{0}".format(n) for n in range(12)] #we do not n
 shifted_met_names = ["met_shifted_%s"%metNames[n] for n in range(12)] #we do not need noShift I gueess
 shifted_mets = {mk: NTupleObject(nm, shiftedMetType, help="PF E_{T}^{miss}, after default type 1 corrections, shifted with %s" %mk) for mk,nm in zip(shifted_met_keys,shifted_met_names)}
 treeProducer.globalObjects.update(shifted_mets)
+
+#Set up b-tag re-weighting
+from PhysicsTools.Heppy.physicsutils.BTagWeightCalculator import BTagWeightCalculator
+bweightcalc = BTagWeightCalculator("csv/csv_rwt_hf_IT_FlatSF.root", "csv/csv_rwt_lf_IT_FlatSF.root")
+btag_weights = {}
+for syst in ["JES", "LF", "HF", "Stats1", "Stats2"]:
+	for sdir in ["Up", "Down"]:
+		name = "bTagWeight"+syst+sdir
+		btag_weights[name] = NTupleVariable("bTagWeight_" + syst + sdir,
+			lambda ev, sname=syst+sdir: bweightcalc.calcEventWeight(
+				ev.cleanJetsAll, kind="final", systematic=sname
+			), float, mcOnly=True, help="b-tag CSV weight, variating "+syst+" "+sdir
+		)
+btag_weights["bTagWeight"] = NTupleVariable("bTagWeight",
+	lambda ev: bweightcalc.calcEventWeight(
+		ev.cleanJetsAll, kind="final", systematic="nominal"
+	), float ,mcOnly=True, help="b-tag CSV weight, nominal"
+)
+print list(btag_weights.values())
+treeProducer.globalVariables += list(btag_weights.values())
 
 # Lepton Analyzer, take its default config
 from PhysicsTools.Heppy.analyzers.objects.LeptonAnalyzer import LeptonAnalyzer
@@ -247,7 +267,7 @@ sample = cfg.MCComponent(
 #'root://xrootd.ba.infn.it//store/mc/Phys14DR/WH_HToBB_WToLNu_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_tsg_PHYS14_25_V1-v1/00000/12328AE8-796B-E411-9D32-002590A831B4.root'
 #"32ABFE4A-916B-E411-B2FA-00266CFFBC60.root" #Hbb
 #"04860BAA-B673-E411-8B20-002481E0D50C.root" #DY 600
-"/shome/jpata/testfiles/00C90EFC-3074-E411-A845-002590DB9262_ttjets_miniaod.root" #
+"/home/joosep/mac-docs/00C90EFC-3074-E411-A845-002590DB9262_ttjets_miniaod.root" #
 #"root://xrootd.ba.infn.it//store/mc/Phys14DR/ZH_HToBB_ZToNuNu_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_tsg_PHYS14_25_V1-v1/00000/32ABFE4A-916B-E411-B2FA-00266CFFBC60.root"
 ##"root://xrootd.ba.infn.it//store/mc/Phys14DR/ZH_HToBB_ZToNuNu_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_tsg_PHYS14_25_V1-v1/00000/32ABFE4A-916B-E411-B2FA-00266CFFBC60.root"
 #"root://xrootd.ba.infn.it//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/#141029_PU40bx50_PLS170_V6AN2-v1/10000/80161D59-6665-E411-9B4F-C4346BB25698.root",
@@ -286,7 +306,7 @@ class TestFilter(logging.Filter):
 # and the following runs the process directly
 if __name__ == '__main__':
     from PhysicsTools.HeppyCore.framework.looper import Looper
-    looper = Looper( 'Loop', config, nPrint = 1, nEvents = 10000)
+    looper = Looper( 'Loop', config, nPrint = 1, nEvents = 100)
 
     import time
     import cProfile

@@ -8,6 +8,7 @@ import PhysicsTools.HeppyCore.framework.config as cfg
 
 from PhysicsTools.Heppy.physicsutils.QGLikelihoodCalculator import QGLikelihoodCalculator
 
+import copy
 def cleanNearestJetOnly(jets,leptons,deltaR):
     dr2 = deltaR**2
     good = [ True for j in jets ]
@@ -90,6 +91,12 @@ class JetAnalyzer( Analyzer ):
         if self.doJEC:
             #print "\nCalibrating jets %s for lumi %d, event %d" % (self.cfg_ana.jetCol, event.lumi, event.eventId)
             self.jetReCalibrator.correctAll(allJets, rho, delta=self.shiftJEC, metShift=event.deltaMetFromJEC)
+        
+        for delta, shift in [(1.0, "JECUp"), (0.0, ""), (-1.0, "JECDown")]:
+            for j1 in allJets:
+                corr = self.jetReCalibrator.getCorrection(j1, rho, delta, event.deltaMetFromJEC)
+                setattr(j1, "corr"+shift, corr)
+                
         event.allJetsUsedForMET = allJets
 
         if self.cfg_comp.isMC:
