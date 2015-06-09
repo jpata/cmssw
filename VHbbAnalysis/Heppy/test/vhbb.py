@@ -9,7 +9,7 @@ from DataFormats.FWLite import *
 import PhysicsTools.HeppyCore.framework.config as cfg
 from VHbbAnalysis.Heppy.vhbbobj import *
 from PhysicsTools.HeppyCore.utils.deltar import deltaPhi
-from PhysicsTools.Heppy.analyzers.core.AutoFillTreeProducer  import * 
+from PhysicsTools.Heppy.analyzers.core.AutoFillTreeProducer  import *
 
 import logging
 logging.basicConfig(level=logging.ERROR)
@@ -18,8 +18,8 @@ logging.basicConfig(level=logging.ERROR)
 cfg.Analyzer.nosubdir = True
 
 treeProducer= cfg.Analyzer(
-	class_object=AutoFillTreeProducer, 
-	verbose=False, 
+	class_object=AutoFillTreeProducer,
+	verbose=False,
 	vectorTree = True,
         globalVariables	= [
 		 NTupleVariable("Vtype", lambda ev : ev.Vtype, help="Event classification"),
@@ -37,8 +37,10 @@ treeProducer= cfg.Analyzer(
                  NTupleVariable("lheNl",  lambda ev: ev.lheNl, float,mcOnly=True, help="number of light(uds) jets at LHE level"),
 		 NTupleVariable("lheV_pt",  lambda ev: ev.lheV_pt, float,mcOnly=True, help="Vector pT at LHE level"),
                  NTupleVariable("lheHT",  lambda ev: ev.lheHT, float,mcOnly=True, help="HT at LHE level"),
-                 NTupleVariable("genTTHtoTauTauDecayMode", lambda ev: ev.genTTHtoTauTauDecayMode, int,mcOnly=True, help="gen level ttH, H -> tautau decay mode"),        
+                 NTupleVariable("genTTHtoTauTauDecayMode", lambda ev: ev.genTTHtoTauTauDecayMode, int,mcOnly=True, help="gen level ttH, H -> tautau decay mode"),
                  NTupleVariable("totSoftActivityJets", lambda ev: len([ x for x in ev.softActivityJets if x.pt()> 2 ] ), int, help="number of jets from soft activity with pt>2Gev"),
+        NTupleVariable("ttCls",  lambda ev: ev.ttbarCls, float,mcOnly=True, help="ttbar classification via GeNHFHadronMatcher"),
+
 	],
 	globalObjects = {
           "met"    : NTupleObject("met",     metType, help="PF E_{T}^{miss}, after default type 1 corrections"),
@@ -73,7 +75,7 @@ treeProducer= cfg.Analyzer(
                 "goodVertices"    : NTupleCollection("primaryVertices", primaryVertexType, 4, help="first four PVs"),
 
 		#dump of gen objects
-                "genJets"    : NTupleCollection("GenJet",   genParticleType, 15, help="Generated top quarks from hard scattering",filter=lambda x: x.pt() > 20,mcOnly=True),
+                "genJetsHadronMatcher"    : NTupleCollection("GenJet",   genJetType, 15, help="Generated jets with hadron matching, sorted by pt descending",filter=lambda x: x.pt() > 20,mcOnly=True),
                 "gentopquarks"    : NTupleCollection("GenTop",     genParticleType, 4, help="Generated top quarks from hard scattering"),
                 "gennusFromTop"    : NTupleCollection("GenNuFromTop",     genParticleType, 4, help="Generated neutrino from t->W decay"),
                 "genbquarksFromH"      : NTupleCollection("GenBQuarkFromH",  genParticleType, 4, help="Generated bottom quarks from Higgs decays"),
@@ -87,7 +89,7 @@ treeProducer= cfg.Analyzer(
 		#"genZbosonsToLL"  : NTupleCollection("GenZbosonsToLL", genParticleType, 6, help="Generated W or Z bosons decaying to LL"),
 		#"genWbosonsToLL"  : NTupleCollection("GenWbosonsToLL", genParticleType, 6, help="Generated W or Z bosons decaying to LL"),
 		"genvbosons"       : NTupleCollection("GenVbosons", genParticleType, 6, help="Generated W or Z bosons, mass > 30"),
-              
+
 	}
 	)
 
@@ -126,10 +128,10 @@ TauAna.inclusive_tauLooseID = "decayModeFindingNewDMs"
 from PhysicsTools.Heppy.analyzers.objects.JetAnalyzer import JetAnalyzer
 JetAna = JetAnalyzer.defaultConfig
 
-from PhysicsTools.Heppy.analyzers.gen.LHEAnalyzer import LHEAnalyzer 
+from PhysicsTools.Heppy.analyzers.gen.LHEAnalyzer import LHEAnalyzer
 LHEAna = LHEAnalyzer.defaultConfig
 
-from PhysicsTools.Heppy.analyzers.gen.GeneratorAnalyzer import GeneratorAnalyzer 
+from PhysicsTools.Heppy.analyzers.gen.GeneratorAnalyzer import GeneratorAnalyzer
 GenAna = GeneratorAnalyzer.defaultConfig
 from VHbbAnalysis.Heppy.VHGeneratorAnalyzer import GeneratorAnalyzer as  VHGeneratorAnalyzer
 VHGenAna = VHGeneratorAnalyzer.defaultConfig
@@ -189,7 +191,7 @@ TrigAna = cfg.Analyzer(
         "MU"      : [ "HLT_IsoTkMu24_eta2p1_IterTrk02_v*", "HLT_IsoTkMu24_IterTrk02_v*" ],
         "TAU"     : ["HLT_LooseIsoPFTau50_Trk30_eta2p1_MET120_v*"],
         "HH4bQuad":["HLT_QuadJet45_TripleCSV0p5_v*"],
-        "HH4bDouble":["HLT_DoubleJet90_Double30_TripleCSV0p5_v*"],  
+        "HH4bDouble":["HLT_DoubleJet90_Double30_TripleCSV0p5_v*"],
         "MUE"     : [ "HLT_Mu23_TrkIsoVVL_Ele12_Gsf_CaloId_TrackId_Iso_MediumWP_v*" ],
         "EMU"     : [ "HLT_Mu8_TrkIsoVVL_Ele23_Gsf_CaloId_TrackId_Iso_MediumWP_v*" ],
         "METTAU"  : [ "HLT_LooseIsoPFTau50_Trk30_eta2p1_MET120_v*" ],
@@ -201,7 +203,7 @@ TrigAna = cfg.Analyzer(
 #   outprefix = 'HLT'
    )
 
-from PhysicsTools.HeppyCore.framework.services.tfile import TFileService 
+from PhysicsTools.HeppyCore.framework.services.tfile import TFileService
 output_service = cfg.Service(
       TFileService,
       'outputfile',
@@ -245,7 +247,7 @@ sample = cfg.MCComponent(
 #'root://xrootd.ba.infn.it//store/mc/Phys14DR/WH_HToBB_WToLNu_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_tsg_PHYS14_25_V1-v1/00000/12328AE8-796B-E411-9D32-002590A831B4.root'
 #"32ABFE4A-916B-E411-B2FA-00266CFFBC60.root" #Hbb
 #"04860BAA-B673-E411-8B20-002481E0D50C.root" #DY 600
-"TTPU20-007B37D4-8B70-E411-BC2D-0025905A6066.root" # 
+"/shome/jpata/testfiles/00C90EFC-3074-E411-A845-002590DB9262_ttjets_miniaod.root" #
 #"root://xrootd.ba.infn.it//store/mc/Phys14DR/ZH_HToBB_ZToNuNu_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_tsg_PHYS14_25_V1-v1/00000/32ABFE4A-916B-E411-B2FA-00266CFFBC60.root"
 ##"root://xrootd.ba.infn.it//store/mc/Phys14DR/ZH_HToBB_ZToNuNu_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_tsg_PHYS14_25_V1-v1/00000/32ABFE4A-916B-E411-B2FA-00266CFFBC60.root"
 #"root://xrootd.ba.infn.it//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/#141029_PU40bx50_PLS170_V6AN2-v1/10000/80161D59-6665-E411-9B4F-C4346BB25698.root",
@@ -256,7 +258,7 @@ sample = cfg.MCComponent(
 #"root://xrootd.ba.infn.it//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/141029_PU40bx50_PLS170_V6AN2-v1/10000/C6D4D875-6665-E411-9E35-00266CF91A18.root"
 #"/home/joosep/mac-docs/tth/data/phys14/tth_hbb_phys14_08B36E8F-5E7F-E411-9D5A-002590200AE4.root"
 #"/home/joosep/mac-docs/tth/data/phys14/ttjets_phys14_00C90EFC-3074-E411-A845-002590DB9262.root"
-#'root://eoscms//eos/cms//store/user/veelken/Phys14/miniAODs/selEvents_TTH_3l1tauh_passingRecTTHtoTauTauDecayModeFilter_original_miniAOD.root'        
+#'root://eoscms//eos/cms//store/user/veelken/Phys14/miniAODs/selEvents_TTH_3l1tauh_passingRecTTHtoTauTauDecayModeFilter_original_miniAOD.root'
 ],
 
     #files = ["226BB247-A565-E411-91CF-00266CFF0AF4.root"],
@@ -273,7 +275,7 @@ sample.isMC=True
 selectedComponents = [sample]
 from PhysicsTools.HeppyCore.framework.eventsfwlite import Events
 config = cfg.Config( components = selectedComponents,
-                     sequence = sequence, 
+                     sequence = sequence,
 		     services = [output_service],
                      events_class = Events)
 
@@ -281,10 +283,10 @@ class TestFilter(logging.Filter):
     def filter(self, record):
         print record
 
-# and the following runs the process directly 
+# and the following runs the process directly
 if __name__ == '__main__':
-    from PhysicsTools.HeppyCore.framework.looper import Looper 
-    looper = Looper( 'Loop', config, nPrint = 1, nEvents = 1000)
+    from PhysicsTools.HeppyCore.framework.looper import Looper
+    looper = Looper( 'Loop', config, nPrint = 1, nEvents = 10000)
 
     import time
     import cProfile
