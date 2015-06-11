@@ -8,7 +8,7 @@ from PhysicsTools.Heppy.analyzers.objects.autophobj  import *
 class AutoFillTreeProducer( TreeAnalyzerNumpy ):
 
     #-----------------------------------
-    # BASIC TREE PRODUCER 
+    # BASIC TREE PRODUCER
     #-----------------------------------
     def __init__(self, cfg_ana, cfg_comp, looperName):
         super(AutoFillTreeProducer,self).__init__(cfg_ana, cfg_comp, looperName)
@@ -16,12 +16,12 @@ class AutoFillTreeProducer( TreeAnalyzerNumpy ):
         ## Read whether we want vectors or flat trees
         self.scalar = not self.cfg_ana.vectorTree
 
-        ## Read whether we want 4-vectors 
+        ## Read whether we want 4-vectors
         if not getattr(self.cfg_ana, 'saveTLorentzVectors', False):
             fourVectorType.removeVariable("p4")
 
- 
-        self.collections = {}      
+
+        self.collections = {}
         self.globalObjects = {}
         self.globalVariables = []
         if hasattr(cfg_ana,"collections"):
@@ -57,7 +57,7 @@ class AutoFillTreeProducer( TreeAnalyzerNumpy ):
  #                   trigVec.push_back(TP)
  #               tr.var( 'HLT_'+T, int )
 #                self.triggerBitCheckers.append( (T, TriggerBitChecker(trigVec)) )
- 
+
         if isMC:
             ## cross section
             tr.var('xsec', float)
@@ -78,7 +78,7 @@ class AutoFillTreeProducer( TreeAnalyzerNumpy ):
                         tr.vector('pdfWeight_%s' % pdf, nvals)
 
     def declareVariables(self,setup):
-        isMC = self.cfg_comp.isMC 
+        isMC = self.cfg_comp.isMC
         tree = self.tree
         self.declareCoreVariables(tree, isMC)
 
@@ -93,7 +93,7 @@ class AutoFillTreeProducer( TreeAnalyzerNumpy ):
 
         for v in self.globalVariables:
             v.makeBranch(tree, isMC)
-        for o in self.globalObjects.itervalues(): 
+        for o in self.globalObjects.itervalues():
             o.makeBranches(tree, isMC)
         for c in self.collections.itervalues():
             if type(c) == tuple: c = c[-1]
@@ -101,12 +101,12 @@ class AutoFillTreeProducer( TreeAnalyzerNumpy ):
                 c.makeBranchesScalar(tree, isMC)
             else:
                 c.makeBranchesVector(tree, isMC)
-            
+
     def fillCoreVariables(self, tr, event, isMC):
         """Here we fill the variables that we always want and that are hard-coded"""
         tr.fill('run', event.input.eventAuxiliary().id().run())
         tr.fill('lumi',event.input.eventAuxiliary().id().luminosityBlock())
-        tr.fill('evt', event.input.eventAuxiliary().id().event())    
+        tr.fill('evt', event.input.eventAuxiliary().id().event())
         tr.fill('isData', 0 if isMC else 1)
 
 #       triggerResults = self.handles['TriggerResults'].product()
@@ -123,7 +123,7 @@ class AutoFillTreeProducer( TreeAnalyzerNumpy ):
             else :
                     tr.fill("nTrueInt", -1)
                     tr.fill("puWeight", 1.0)
-                
+
             tr.fill("genWeight", self.mchandles['GenInfo'].product().weight())
             ## PDF weights
             if hasattr(event,"pdfWeights") :
@@ -137,14 +137,14 @@ class AutoFillTreeProducer( TreeAnalyzerNumpy ):
                     tr.vfill('pdfWeight_%s' % pdf, event.pdfWeights[pdf])
 
     def process(self, event):
-	if hasattr(self.cfg_ana,"filter") :	
+	if hasattr(self.cfg_ana,"filter") :
 		if not self.cfg_ana.filter(event) :
 			return True #do not stop processing, just filter myself
         self.readCollections( event.input)
         self.fillTree(event)
-         
+
     def fillTree(self, event, resetFirst=True):
-        isMC = self.cfg_comp.isMC 
+        isMC = self.cfg_comp.isMC
         if resetFirst: self.tree.reset()
 
         self.fillCoreVariables(self.tree, event, isMC)
@@ -153,7 +153,7 @@ class AutoFillTreeProducer( TreeAnalyzerNumpy ):
             if not isMC and v.mcOnly: continue
             v.fillBranch(self.tree, event, isMC)
 
-        for on, o in self.globalObjects.iteritems(): 
+        for on, o in self.globalObjects.iteritems():
             if not isMC and o.mcOnly: continue
             o.fillBranches(self.tree, getattr(event, on), isMC)
 
@@ -169,21 +169,21 @@ class AutoFillTreeProducer( TreeAnalyzerNumpy ):
             else:
                 c.fillBranchesVector(self.tree, getattr(event, cn), isMC)
 
-        self.tree.tree.Fill()      
-    
+        self.tree.tree.Fill()
+
     def getPythonWrapper(self):
         """
         This function produces a string that contains a Python wrapper for the event.
         The wrapper is automatically generated based on the collections and allows the full
         event contents to be accessed from subsequent Analyzers using e.g.
-        
+
         leps = event.selLeptons #is of type selLeptons
         pt0 = leps[0].pt
 
         One just needs to add the EventAnalyzer to the sequence.
         """
 
-        isMC = self.cfg_comp.isMC 
+        isMC = self.cfg_comp.isMC
 
         classes = ""
         anclass = ""
@@ -196,7 +196,14 @@ class AutoFillTreeProducer( TreeAnalyzerNumpy ):
 
         for cname, coll in self.collections.items():
             classes += coll.get_py_wrapper_class(isMC)
-            anclass += "        event.{0} = {0}.make_array(event)\n".format(coll.name)
-        
+            anclass += "        event.{0} = {0}.make_array(event.input)\n".format(coll.name)
+
+        for cname, coll in self.globalObjects.items():
+            classes += coll.get_py_wrapper_class(isMC)
+            anclass += "        event.{0} = {0}.make_obj(event.input)\n".format(coll.name)
+
+        for v in self.globalVariables:
+            anclass += "        event.{0} = getattr(event.input, \"{0}\", None)\n".format(v.name)
+
         return classes + "\n" + anclass
 
