@@ -169,16 +169,16 @@ class GenHFHadronMatcher( Analyzer ):
             else:
                 if len(cBeforeTop) == 1:
                     if max(nhc) == 1:
-                        cls = 41
+                        cls = 41 #1 c jet, 1 c hadron
                     else:
-                        cls = 42
+                        cls = 42 #1 c jet, 2 c hadrons
                 elif len(cBeforeTop) > 1:
                     if max(nhc) == 1:
-                        cls = 43
+                        cls = 43 #2 c jets, 1 c hadron
                     elif min(nhc)==1 and max(nhc)>1:
-                        cls = 44
+                        cls = 44 #2 c jets, one with one and the other with two c hadrons
                     elif min(nhc)>1:
-                        cls = 45
+                        cls = 45 #2 c jets, 2 c hadrons
                 else:
                     cls = 0
 
