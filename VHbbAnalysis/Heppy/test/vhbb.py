@@ -40,6 +40,7 @@ treeProducer= cfg.Analyzer(
                  NTupleVariable("genTTHtoTauTauDecayMode", lambda ev: ev.genTTHtoTauTauDecayMode, int,mcOnly=True, help="gen level ttH, H -> tautau decay mode"),
                  NTupleVariable("totSoftActivityJets", lambda ev: len([ x for x in ev.softActivityJets if x.pt()> 2 ] ), int, help="number of jets from soft activity with pt>2Gev"),
         NTupleVariable("ttCls",  lambda ev: getattr(ev, "ttbarCls", -1), float,mcOnly=True, help="ttbar classification via GeNHFHadronMatcher"),
+        NTupleVariable("genHiggsDecayMode",  lambda ev: getattr(ev, "genHiggsDecayMode", 0), float,mcOnly=True, help="Higgs decay mode (0 - nonHiggs, 15 - tautau, 23 -> ZZ, 24 -> WW, 55 -> bb, etc)"),
 	],
 	globalObjects = {
           "met"    : NTupleObject("met",     metType, help="PF E_{T}^{miss}, after default type 1 corrections"),
@@ -168,7 +169,7 @@ JetAna.doQG=True
 JetAna.QGpath="pdfQG_AK4chs_antib_13TeV_v1.root"
 JetAna.recalibrateJets=True
 JetAna.jecPath="jec"
-JetAna.mcGT="PHYS14_V4_MC"
+JetAna.mcGT="PHYS14_V2_MC"
 
 VHbb = cfg.Analyzer(
     verbose=False,

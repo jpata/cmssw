@@ -34,11 +34,12 @@ config.Data.inputDataset = '/WH_HToBB_WToLNu_M-125_13TeV_powheg-herwigpp/Phys14D
 config.Data.inputDBS = 'global'
 config.Data.splitting = 'FileBased'
 config.Data.unitsPerJob = 5
-config.Data.outLFNDirBase = '/store/user/jpata/VHBBHeppy722p2-tthsync-jun9-1/'
+config.Data.outLFNDirBase = '/store/user/jpata/VHBB_HEPPY_V11_722sync_v2/'
 config.Data.publication = True
-config.Data.publishDataName = 'VHBB_HEPPY_V11'
+config.Data.publishDataName = 'VHBB_HEPPY_V11_722sync_v2'
 
 config.section_("Site")
-config.Site.storageSite = "T2_EE_Estonia"
+#config.Site.storageSite = "T2_EE_Estonia"
+config.Site.storageSite = "T3_CH_PSI"
 
 #config.Data.ignoreLocality = True
