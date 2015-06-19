@@ -384,8 +384,8 @@ std::vector<int> GenHFHadronMatcher::findHadronJets ( const reco::GenParticleCol
         std::vector <int> LastQuarkMotherId;
 
         int hadFlav = hadMothers.at(hadIdx).pdgId() <0?-1:1; // Charge of the hadron (-1,1)
-        if ( abs ( hadMothers.at(hadIdx).pdgId() ) /1000 < 1 ) {
-            hadFlav*=-1;    // Inverting flavour of hadron if it is a meson
+        if ( abs ( hadMothers.at(hadIdx).pdgId() ) /1000 != 5 && abs ( hadMothers.at(hadIdx).pdgId() ) /100%10 == 5 ) {
+            hadFlav*=-1;    // Inverting flavour of B hadron if it is a meson
         }
 
         // Searching only first quark in the chain with the same flavour as hadron
@@ -738,8 +738,8 @@ int GenHFHadronMatcher::findInMothers ( int idx, std::vector<int> &mothChains, s
     int foundStopId = -1;
     int pdg_1 = hadMothers.at ( idx ).pdgId();
     int partCharge = ( hadMothers.at ( idx ).pdgId() >0 ) ?1:-1;
-// Inverting charge if mother is a b(c) meson
-    if ( abs ( hadMothers.at ( idx ).pdgId() ) /1000 < 1 && ( abs ( hadMothers.at ( idx ).pdgId() ) /100%10 == 4 || abs ( hadMothers.at ( idx ).pdgId() ) /100%10 == 5 ) ) {
+    // Inverting charge if mother is a b meson
+    if ( abs ( hadMothers.at ( idx ).pdgId() ) /1000 != 5 && abs ( hadMothers.at ( idx ).pdgId() ) /100%10 == 5 ) {
         partCharge*=-1;
     }
 

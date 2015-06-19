@@ -2,8 +2,8 @@ from WMCore.Configuration import Configuration
 config = Configuration()
 
 config.section_("General")
-config.General.requestName = 'VHBB_HEPPY_V11_001'
-config.General.workArea = 'crab_projects_V11_001'
+config.General.requestName = 'VHBB_HEPPY_tthsync_001'
+config.General.workArea = 'crab_projects_tthsync_001'
 config.General.transferLogs=True
 
 config.section_("JobType")
@@ -23,6 +23,9 @@ config.JobType.inputFiles = ['heppy_config.py',
                              '../jec/PHYS14_V4_MC_L1FastJet_AK4PFchs.txt',  
                              '../jec/PHYS14_V4_MC_L2Relative_AK4PFchs.txt',  
                              '../jec/PHYS14_V4_MC_L3Absolute_AK4PFchs.txt',
+                             '../jec/Uncertainty_FAKE.txt',
+                             '../csv/csv_rwt_hf_IT_FlatSF.root',
+                             '../csv/csv_rwt_lf_IT_FlatSF.root',
 ]
 #config.JobType.outputFiles = ['tree.root']
 
@@ -30,12 +33,13 @@ config.section_("Data")
 config.Data.inputDataset = '/WH_HToBB_WToLNu_M-125_13TeV_powheg-herwigpp/Phys14DR-PU40bx25_PHYS14_25_V1-v1/MINIAODSIM'
 config.Data.inputDBS = 'global'
 config.Data.splitting = 'FileBased'
-config.Data.unitsPerJob = 5
-config.Data.outLFN = '/store/user/arizzi/VHBBHeppyV11/'
+config.Data.unitsPerJob = 3
+config.Data.outLFNDirBase = '/store/user/jpata/VHBB_HEPPY_V11_722sync_v2/'
 config.Data.publication = True
-config.Data.publishDataName = 'VHBB_HEPPY_V11'
+config.Data.publishDataName = 'VHBB_HEPPY_V11_722sync_v2'
 
 config.section_("Site")
-config.Site.storageSite = "T2_IT_Pisa"
+#config.Site.storageSite = "T2_EE_Estonia"
+config.Site.storageSite = "T3_CH_PSI"
 
 #config.Data.ignoreLocality = True

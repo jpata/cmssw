@@ -39,6 +39,8 @@ treeProducer= cfg.Analyzer(
                  NTupleVariable("lheHT",  lambda ev: ev.lheHT, float,mcOnly=True, help="HT at LHE level"),
                  NTupleVariable("genTTHtoTauTauDecayMode", lambda ev: ev.genTTHtoTauTauDecayMode, int,mcOnly=True, help="gen level ttH, H -> tautau decay mode"),        
                  NTupleVariable("totSoftActivityJets", lambda ev: len([ x for x in ev.softActivityJets if x.pt()> 2 ] ), int, help="number of jets from soft activity with pt>2Gev"),
+        NTupleVariable("ttCls",  lambda ev: getattr(ev, "ttbarCls", -1), float,mcOnly=True, help="ttbar classification via GeNHFHadronMatcher"),
+        NTupleVariable("genHiggsDecayMode",  lambda ev: getattr(ev, "genHiggsDecayMode", 0), float,mcOnly=True, help="Higgs decay mode (0 - nonHiggs, 15 - tautau, 23 -> ZZ, 24 -> WW, 55 -> bb, etc)"),
 	],
 	globalObjects = {
           "met"    : NTupleObject("met",     metType, help="PF E_{T}^{miss}, after default type 1 corrections"),
@@ -73,7 +75,8 @@ treeProducer= cfg.Analyzer(
                 "goodVertices"    : NTupleCollection("primaryVertices", primaryVertexType, 4, help="first four PVs"),
 
 		#dump of gen objects
-                "genJets"    : NTupleCollection("GenJet",   genParticleType, 15, help="Generated top quarks from hard scattering",filter=lambda x: x.pt() > 20,mcOnly=True),
+                #"genJetsHadronMatcher"    : NTupleCollection("GenJet",   genJetType, 15, help="Generated jets with hadron matching, sorted by pt descending",filter=lambda x: x.pt() > 20,mcOnly=True),
+                "genJets"    : NTupleCollection("GenJet",   genParticleType, 15, help="Generated jets with hadron matching, sorted by pt descending",filter=lambda x: x.pt() > 20,mcOnly=True),
                 "gentopquarks"    : NTupleCollection("GenTop",     genParticleType, 4, help="Generated top quarks from hard scattering"),
                 "gennusFromTop"    : NTupleCollection("GenNuFromTop",     genParticleType, 4, help="Generated neutrino from t->W decay"),
                 "genbquarksFromH"      : NTupleCollection("GenBQuarkFromH",  genParticleType, 4, help="Generated bottom quarks from Higgs decays"),
@@ -97,6 +100,26 @@ shifted_met_keys = ["met_shifted_{0}".format(n) for n in range(12)] #we do not n
 shifted_met_names = ["met_shifted_%s"%metNames[n] for n in range(12)] #we do not need noShift I gueess
 shifted_mets = {mk: NTupleObject(nm, shiftedMetType, help="PF E_{T}^{miss}, after default type 1 corrections, shifted with %s" %mk) for mk,nm in zip(shifted_met_keys,shifted_met_names)}
 treeProducer.globalObjects.update(shifted_mets)
+
+#Set up b-tag re-weighting
+from PhysicsTools.Heppy.physicsutils.BTagWeightCalculator import BTagWeightCalculator
+bweightcalc = BTagWeightCalculator("csv/csv_rwt_hf_IT_FlatSF.root", "csv/csv_rwt_lf_IT_FlatSF.root")
+btag_weights = {}
+for syst in ["JES", "LF", "HF", "Stats1", "Stats2"]:
+	for sdir in ["Up", "Down"]:
+		name = "bTagWeight"+syst+sdir
+		btag_weights[name] = NTupleVariable("bTagWeight_" + syst + sdir,
+			lambda ev, sname=syst+sdir: bweightcalc.calcEventWeight(
+				ev.cleanJetsAll, kind="final", systematic=sname
+			), float, mcOnly=True, help="b-tag CSV weight, variating "+syst+" "+sdir
+		)
+btag_weights["bTagWeight"] = NTupleVariable("bTagWeight",
+	lambda ev: bweightcalc.calcEventWeight(
+		ev.cleanJetsAll, kind="final", systematic="nominal"
+	), float ,mcOnly=True, help="b-tag CSV weight, nominal"
+)
+print list(btag_weights.values())
+treeProducer.globalVariables += list(btag_weights.values())
 
 # Lepton Analyzer, take its default config
 from PhysicsTools.Heppy.analyzers.objects.LeptonAnalyzer import LeptonAnalyzer
@@ -146,7 +169,7 @@ JetAna.doQG=True
 JetAna.QGpath="pdfQG_AK4chs_antib_13TeV_v1.root"
 JetAna.recalibrateJets=True
 JetAna.jecPath="jec"
-JetAna.mcGT="PHYS14_V4_MC"
+JetAna.mcGT="PHYS14_V2_MC"
 
 VHbb = cfg.Analyzer(
     verbose=False,
@@ -233,41 +256,21 @@ if doPDFVars:
 sequence = [LHEAna,FlagsAna, GenAna,VHGenAna,PUAna,TrigAna,VertexAna,LepAna,PhoAna,TauAna,JetAna,METAna,PdfAna,VHbb,TTHtoTauTau,TTHtoTauTauGen,treeProducer]#,sh]
 
 
+import sys
+if len(sys.argv) == 3:
+    files = [sys.argv[1]]
+else:
+    files = []
+
 from PhysicsTools.Heppy.utils.miniAodFiles import miniAodFiles
 sample = cfg.MCComponent(
-    files = [
-
-#       'root://eoscms//eos/cms//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_POSTLS170_V5-v1/00000/14053C6D-AD09-E411-A748-00266CFFC9C4.root',
-#       'root://eoscms//eos/cms//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_POSTLS170_V5-v1/00000/62ED6255-AE09-E411-97CB-00266CFFBF88.root',
-#       'root://eoscms//eos/cms//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_POSTLS170_V5-v1/00000/72C26B45-AD09-E411-A77C-00266CFFBF80.root',
-#       'root://eoscms//eos/cms//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_POSTLS170_V5-v1/00000/BAEE7255-AE09-E411-8F9F-00266CFFBF88.root',
-#       'root://eoscms//eos/cms//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_POSTLS170_V5-v1/00000/D600138D-AD09-E411-917F-00266CFFBF88.root'
-#'root://xrootd.ba.infn.it//store/mc/Phys14DR/WH_HToBB_WToLNu_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_tsg_PHYS14_25_V1-v1/00000/12328AE8-796B-E411-9D32-002590A831B4.root'
-#"32ABFE4A-916B-E411-B2FA-00266CFFBC60.root" #Hbb
-#"04860BAA-B673-E411-8B20-002481E0D50C.root" #DY 600
-"TTPU20-007B37D4-8B70-E411-BC2D-0025905A6066.root" # 
-#"root://xrootd.ba.infn.it//store/mc/Phys14DR/ZH_HToBB_ZToNuNu_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_tsg_PHYS14_25_V1-v1/00000/32ABFE4A-916B-E411-B2FA-00266CFFBC60.root"
-##"root://xrootd.ba.infn.it//store/mc/Phys14DR/ZH_HToBB_ZToNuNu_M-125_13TeV_powheg-herwigpp/MINIAODSIM/PU20bx25_tsg_PHYS14_25_V1-v1/00000/32ABFE4A-916B-E411-B2FA-00266CFFBC60.root"
-#"root://xrootd.ba.infn.it//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/#141029_PU40bx50_PLS170_V6AN2-v1/10000/80161D59-6665-E411-9B4F-C4346BB25698.root",
-#"root://xrootd.ba.infn.it:1194//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/141029_PU40bx50_PLS170_V6AN2-v1/10000/8A345C56-6665-E411-9C25-1CC1DE04DF20.root",
-#"root://stormgf1.pi.infn.it//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/141029_PU40bx50_PLS170_V6AN2-v1/10000/8A345C56-6665-E411-9C25-1CC1DE04DF20.root",
-#"/gpfs/ddn/srm/cms/store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/141029_PU40bx50_PLS170_V6AN2-v1/10000/8A345C56-6665-E411-9C25-1CC1DE04DF20.root",
-#"root://xrootd.ba.infn.it//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/141029_PU40bx50_PLS170_V6AN2-v1/10000/9C477248-6665-E411-A9A6-1CC1DE1D0600.root",
-#"root://xrootd.ba.infn.it//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/141029_PU40bx50_PLS170_V6AN2-v1/10000/C6D4D875-6665-E411-9E35-00266CF91A18.root"
-#"/home/joosep/mac-docs/tth/data/phys14/tth_hbb_phys14_08B36E8F-5E7F-E411-9D5A-002590200AE4.root"
-#"/home/joosep/mac-docs/tth/data/phys14/ttjets_phys14_00C90EFC-3074-E411-A845-002590DB9262.root"
-#'root://eoscms//eos/cms//store/user/veelken/Phys14/miniAODs/selEvents_TTH_3l1tauh_passingRecTTHtoTauTauDecayModeFilter_original_miniAOD.root'        
-],
+    files = files,
 
     #files = ["226BB247-A565-E411-91CF-00266CFF0AF4.root"],
     name="ZHLL125", isEmbed=False,
     splitFactor = 5
     )
 sample.isMC=True
-
-#"root://xrootd.ba.infn.it//store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/141029_PU40bx50_PLS170_V6AN2-v1/00000/226BB247-A565-E411-91CF-00266CFF0AF4.root"
-#/store/mc/Spring14miniaod/ZH_HToBB_ZToLL_M-125_13TeV_powheg-herwigpp/MINIAODSIM/141029_PU40bx50_PLS170_V6AN2-v1/00000/226BB247-A565-E411-91CF-00266CFF0AF4.root
-#/store/mc/Spring14miniaod/DYJetsToLL_M-50_13TeV-madgraph-pythia8-tauola_v2/MINIAODSIM/141029_PU40bx50_PLS170_V6AN2-v1/10000/0004A557-C666-E411-8698-549F35AD8B61.root
 
 # the following is declared in case this cfg is used in input to the heppy.py script
 selectedComponents = [sample]
@@ -284,7 +287,7 @@ class TestFilter(logging.Filter):
 # and the following runs the process directly 
 if __name__ == '__main__':
     from PhysicsTools.HeppyCore.framework.looper import Looper 
-    looper = Looper( 'Loop', config, nPrint = 1, nEvents = 1000)
+    looper = Looper( 'Loop', config)
 
     import time
     import cProfile

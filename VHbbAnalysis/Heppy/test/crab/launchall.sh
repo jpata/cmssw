@@ -1,5 +1,6 @@
 #!/bin/bash
-cmsenv
+set -e
+eval `scramv1 runtime -sh`
 source /cvmfs/cms.cern.ch/crab3/crab.sh
 #voms-proxy-init -voms cms
 for i in `cat datasets.txt` ; do
