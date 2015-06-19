@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+import sys
 
 from PhysicsTools.Heppy.utils.cmsswPreprocessor import CmsswPreprocessor
 
@@ -58,11 +59,17 @@ treeProducer.collections["tauGenJets"] = NTupleCollection("GenHadTaus", genTauJe
 
 # Run Everything
 
+import sys
+if len(sys.argv) == 3:
+    out = sys.argv[2]
+else:
+    out = "Loop"
+
 preprocessor = CmsswPreprocessor("combined_cmssw.py")
 config.preprocessor=preprocessor
 if __name__ == '__main__':
     from PhysicsTools.HeppyCore.framework.looper import Looper
-    looper = Looper( 'Loop', config, nPrint = 1, nEvents = 1000)
+    looper = Looper( sys.argv[2], config, nPrint = 1, nEvents = 1000000)
     import time
     import cProfile
     p = cProfile.Profile(time.clock)
