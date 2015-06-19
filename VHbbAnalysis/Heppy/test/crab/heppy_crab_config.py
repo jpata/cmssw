@@ -33,7 +33,7 @@ config.section_("Data")
 config.Data.inputDataset = '/WH_HToBB_WToLNu_M-125_13TeV_powheg-herwigpp/Phys14DR-PU40bx25_PHYS14_25_V1-v1/MINIAODSIM'
 config.Data.inputDBS = 'global'
 config.Data.splitting = 'FileBased'
-config.Data.unitsPerJob = 5
+config.Data.unitsPerJob = 3
 config.Data.outLFNDirBase = '/store/user/jpata/VHBB_HEPPY_V11_722sync_v2/'
 config.Data.publication = True
 config.Data.publishDataName = 'VHBB_HEPPY_V11_722sync_v2'
