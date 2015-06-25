@@ -375,7 +375,7 @@ setattr(JetAnalyzer,"defaultConfig", cfg.Analyzer(
     doQG = False, 
     recalibrateJets = False,
     shiftJEC = 0, # set to +1 or -1 to get +/-1 sigma shifts
-    smearJets = True,
+    smearJets = False,
     shiftJER = 0, # set to +1 or -1 to get +/-1 sigma shifts    
     cleanJetsFromFirstPhoton = False,
     cleanJetsFromTaus = False,

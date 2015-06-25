@@ -42,6 +42,9 @@ mkdir jec
 mv PHYS14_V4_MC_L1FastJet_AK4PFchs.txt jec/
 mv PHYS14_V4_MC_L2Relative_AK4PFchs.txt jec/
 mv PHYS14_V4_MC_L3Absolute_AK4PFchs.txt jec/
+mv PHYS14_V2_MC_L1FastJet_AK4PFchs.txt jec/
+mv PHYS14_V2_MC_L2Relative_AK4PFchs.txt jec/
+mv PHYS14_V2_MC_L3Absolute_AK4PFchs.txt jec/
 mv Uncertainty_FAKE.txt jec/
 mkdir -p csv
 mv csv_*.root csv/
