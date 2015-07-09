@@ -118,25 +118,9 @@ class JetAnalyzer( Analyzer ):
         
         ## Clean Jets from leptons
         leptons = []
-        #if hasattr(event, 'selectedLeptons'):
-        #    leptons = [ l for l in event.selectedLeptons if l.pt() > self.lepPtMin ]
-#        muons = self.handles["muon"].product()
-#        eles = self.handles["electron"].product()
-        event.input.getByLabel("slimmedMuons", self.muh)
-        muons = self.muh.product()
-        event.input.getByLabel("slimmedElectrons", self.elh)
-        eles = self.elh.product()
+        if hasattr(event, 'selectedLeptons'):
+            leptons = [ l for l in event.selectedLeptons if l.pt() > self.lepPtMin ]
 
-        for mu in muons:
-            leptons += [Muon(mu)] 
-        for ele in eles:
-            leptons += [Electron(ele)]
-        for lep in leptons:
-            print lep, lep.pt()
-            for j in range(lep.numberOfSourceCandidatePtrs()):
-                p2 = lep.sourceCandidatePtr(j)
-                print p2
-                print p2.isAvailable()
         self.subtractLeptons = True
     ## Apply jet selection
         event.jets = []
@@ -148,14 +132,11 @@ class JetAnalyzer( Analyzer ):
                 leps_with_overlaps = []
                 for i in range(jet.numberOfSourceCandidatePtrs()):
                     p1 = jet.sourceCandidatePtr(i) #Ptr<Candidate> p1
-                    print "jetp", p1, p1.isAvailable(), len(leptons)
                     if not p1.isAvailable():
                         continue
                     for lep in leptons:
-                        print "lep", lep.pdgId(), lep.numberOfSourceCandidatePtrs()
                         for j in range(lep.numberOfSourceCandidatePtrs()):
                             p2 = lep.sourceCandidatePtr(j)
-                            print "lepp", p2
                             if not p2.isAvailable():
                                 continue
                             #has_overlaps = p1.refCore() == p2.refCore() and p1.key() == p2.key()
@@ -163,13 +144,8 @@ class JetAnalyzer( Analyzer ):
                             if has_overlaps:
                                 leps_with_overlaps += [lep]
                 if len(leps_with_overlaps)>0:
-                    print "overlaps", leps_with_overlaps
                     for lep in leps_with_overlaps:
-                        if hasattr(lep, "jetOverlap"):
-                            print "lepton already has overlapping jet"
                         lep.jetOverlap = jet
-                else:
-                    print "no overlaps"
             if self.testJetNoID( jet ): 
                 event.jetsAllNoID.append(jet) 
                 if self.testJetID (jet ):
@@ -188,7 +164,8 @@ class JetAnalyzer( Analyzer ):
 
         event.cleanJetsAll, cleanLeptons = cleanJetsAndLeptons(event.jets, leptons, self.jetLepDR, self.jetLepArbitration)
         for lep in leptons:
-            if hasattr(lep, "jetOverlap"):
+            if hasattr(lep, "jetOverlap") and lep.jetOverlap in event.cleanJetsAll:
+                print "overlap", lep.p4().pt(), lep.p4().eta(), lep.p4().phi(), lep.jetOverlap.p4().pt(), lep.jetOverlap.p4().eta(), lep.jetOverlap.p4().phi()
                 lep.jetOverlapIdx = event.cleanJetsAll.index(lep.jetOverlap)
         event.cleanJets    = [j for j in event.cleanJetsAll if abs(j.eta()) <  self.cfg_ana.jetEtaCentral ]
         event.cleanJetsFwd = [j for j in event.cleanJetsAll if abs(j.eta()) >= self.cfg_ana.jetEtaCentral ]
