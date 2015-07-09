@@ -2,9 +2,12 @@ import math
 from PhysicsTools.Heppy.analyzers.core.Analyzer import Analyzer
 from PhysicsTools.Heppy.analyzers.core.AutoHandle import AutoHandle
 from PhysicsTools.Heppy.physicsobjects.PhysicsObjects import Jet
+from PhysicsTools.Heppy.physicsobjects.Electron import Electron
+from PhysicsTools.Heppy.physicsobjects.Muon import Muon
 from PhysicsTools.HeppyCore.utils.deltar import deltaR2, deltaPhi, matchObjectCollection, matchObjectCollection2, bestMatch
 from PhysicsTools.Heppy.physicsutils.JetReCalibrator import JetReCalibrator
 import PhysicsTools.HeppyCore.framework.config as cfg
+from DataFormats.FWLite import Events, Handle
 
 from PhysicsTools.Heppy.physicsutils.QGLikelihoodCalculator import QGLikelihoodCalculator
 
@@ -75,6 +78,11 @@ class JetAnalyzer( Analyzer ):
         self.handles['genJet'] = AutoHandle( 'slimmedGenJets', 'vector<reco::GenJet>' )
         self.shiftJER = self.cfg_ana.shiftJER if hasattr(self.cfg_ana, 'shiftJER') else 0
         self.handles['rho'] = AutoHandle( ('fixedGridRhoFastjetAll','',''), 'double' )
+        self.handles["muon"] = AutoHandle("slimmedMuons", "std::vector<pat::Muon>")
+        self.handles["electron"] = AutoHandle("slimmedElectrons", "std::vector<pat::Electron>")
+        
+        self.muh = Handle("std::vector<pat::Muon>")
+        self.elh = Handle("std::vector<pat::Electron>")
     
     def beginLoop(self, setup):
         super(JetAnalyzer,self).beginLoop(setup)
@@ -108,12 +116,60 @@ class JetAnalyzer( Analyzer ):
 	##Sort Jets by pT 
         allJets.sort(key = lambda j : j.pt(), reverse = True)
         
-	## Apply jet selection
+        ## Clean Jets from leptons
+        leptons = []
+        #if hasattr(event, 'selectedLeptons'):
+        #    leptons = [ l for l in event.selectedLeptons if l.pt() > self.lepPtMin ]
+#        muons = self.handles["muon"].product()
+#        eles = self.handles["electron"].product()
+        event.input.getByLabel("slimmedMuons", self.muh)
+        muons = self.muh.product()
+        event.input.getByLabel("slimmedElectrons", self.elh)
+        eles = self.elh.product()
+
+        for mu in muons:
+            leptons += [Muon(mu)] 
+        for ele in eles:
+            leptons += [Electron(ele)]
+        for lep in leptons:
+            print lep, lep.pt()
+            for j in range(lep.numberOfSourceCandidatePtrs()):
+                p2 = lep.sourceCandidatePtr(j)
+                print p2
+                print p2.isAvailable()
+        self.subtractLeptons = True
+    ## Apply jet selection
         event.jets = []
         event.jetsFailId = []
         event.jetsAllNoID = []
         event.jetsIdOnly = []
         for jet in allJets:
+            if self.subtractLeptons:
+                leps_with_overlaps = []
+                for i in range(jet.numberOfSourceCandidatePtrs()):
+                    p1 = jet.sourceCandidatePtr(i) #Ptr<Candidate> p1
+                    print "jetp", p1, p1.isAvailable(), len(leptons)
+                    if not p1.isAvailable():
+                        continue
+                    for lep in leptons:
+                        print "lep", lep.pdgId(), lep.numberOfSourceCandidatePtrs()
+                        for j in range(lep.numberOfSourceCandidatePtrs()):
+                            p2 = lep.sourceCandidatePtr(j)
+                            print "lepp", p2
+                            if not p2.isAvailable():
+                                continue
+                            #has_overlaps = p1.refCore() == p2.refCore() and p1.key() == p2.key()
+                            has_overlaps = p1.p4() == p2.p4() and p1.charge() == p2.charge()
+                            if has_overlaps:
+                                leps_with_overlaps += [lep]
+                if len(leps_with_overlaps)>0:
+                    print "overlaps", leps_with_overlaps
+                    for lep in leps_with_overlaps:
+                        if hasattr(lep, "jetOverlap"):
+                            print "lepton already has overlapping jet"
+                        lep.jetOverlap = jet
+                else:
+                    print "no overlaps"
             if self.testJetNoID( jet ): 
                 event.jetsAllNoID.append(jet) 
                 if self.testJetID (jet ):
@@ -130,15 +186,10 @@ class JetAnalyzer( Analyzer ):
             elif self.testJetID (jet ):
                 event.jetsIdOnly.append(jet)
 
-        ## Clean Jets from leptons
-        leptons = []
-        if hasattr(event, 'selectedLeptons'):
-            leptons = [ l for l in event.selectedLeptons if l.pt() > self.lepPtMin ]
-        if self.cfg_ana.cleanJetsFromTaus and hasattr(event, 'selectedTaus'):
-            leptons = leptons[:] + event.selectedTaus
-        if self.cfg_ana.cleanJetsFromIsoTracks and hasattr(event, 'selectedIsoCleanTrack'):
-            leptons = leptons[:] + event.selectedIsoCleanTrack
         event.cleanJetsAll, cleanLeptons = cleanJetsAndLeptons(event.jets, leptons, self.jetLepDR, self.jetLepArbitration)
+        for lep in leptons:
+            if hasattr(lep, "jetOverlap"):
+                lep.jetOverlapIdx = event.cleanJetsAll.index(lep.jetOverlap)
         event.cleanJets    = [j for j in event.cleanJetsAll if abs(j.eta()) <  self.cfg_ana.jetEtaCentral ]
         event.cleanJetsFwd = [j for j in event.cleanJetsAll if abs(j.eta()) >= self.cfg_ana.jetEtaCentral ]
         event.discardedJets = [j for j in event.jets if j not in event.cleanJetsAll]
@@ -146,7 +197,12 @@ class JetAnalyzer( Analyzer ):
             event.discardedLeptons = [ l for l in leptons if l not in cleanLeptons ]
             event.selectedLeptons  = [ l for l in event.selectedLeptons if l not in event.discardedLeptons ]
 
-        ## Clean Jets from photons
+        if self.cfg_ana.cleanJetsFromTaus and hasattr(event, 'selectedTaus'):
+            leptons = leptons[:] + event.selectedTaus
+        if self.cfg_ana.cleanJetsFromIsoTracks and hasattr(event, 'selectedIsoCleanTrack'):
+            leptons = leptons[:] + event.selectedIsoCleanTrack
+        
+        # Clean Jets from photons
         photons = []
         if hasattr(event, 'selectedPhotons'):
             if self.cfg_ana.cleanJetsFromFirstPhoton:

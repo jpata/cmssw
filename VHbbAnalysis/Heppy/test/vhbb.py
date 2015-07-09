@@ -70,6 +70,7 @@ treeProducer= cfg.Analyzer(
                 "ajidx3cj"       : NTupleCollection("aJ3Cidx",    objectInt, 8,help="additional jet indices 3 cen  jets"),
 
                 "cleanJetsAll"       : NTupleCollection("Jet",     jetTypeVHbb, 15, help="Cental+fwd jets after full selection and cleaning, sorted by b-tag"),
+                "discardedJets"       : NTupleCollection("DiscardedJet",     jetTypeVHbb, 15, help="jets that were discarded"),
                 "inclusiveTaus"  : NTupleCollection("TauGood", tauTypeVHbb, 25, help="Taus after the preselection"),
                 "softActivityJets"    : NTupleCollection("softActivityJets", fourVectorType, 5, help="jets made for soft activity"),
                 "goodVertices"    : NTupleCollection("primaryVertices", primaryVertexType, 4, help="first four PVs"),
