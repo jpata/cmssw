@@ -1,4 +1,4 @@
-from vhbb import *
+from vhbb_combined import *
 from PhysicsTools.HeppyCore.framework.looper import Looper
 print "making looper"
 looper = Looper('Loop', config, nPrint=0, nEvents=0)
