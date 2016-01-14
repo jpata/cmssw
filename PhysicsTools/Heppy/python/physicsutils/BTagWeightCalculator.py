@@ -110,7 +110,7 @@ class BTagWeightCalculator:
         if isinstance(getattr(jet, "pt"), float):
             pt   = getattr(jet, "pt")
             aeta = abs(getattr(jet, "eta"))
-            fl   = abs(getattr(jet, "mcFlavour"))
+            fl   = abs(getattr(jet, "hadronFlavour"))
             csv  = getattr(jet, self.btag)
         #if jet is a heppy Jet object
         else:
@@ -119,6 +119,9 @@ class BTagWeightCalculator:
             aeta = abs(jet.eta())
             fl   = abs(jet.hadronFlavour())
             csv  = jet.btag(self.btag)
+        return self.calcJetWeightImpl(pt, aeta, fl, csv, kind, systematic)
+
+    def calcJetWeightImpl(self, pt, aeta, fl, csv, kind, systematic):
 
         is_b = (fl == 5)
         is_c = (fl == 4)
@@ -129,7 +132,7 @@ class BTagWeightCalculator:
                                         "nominal"]):
             return 1.0
         if is_c and not (systematic in ["cErr1Up", "cErr1Down", "cErr2Up", "cErr2Down",
-                                        "nominal"]):
+                                        "nominal", "CUp", "CDown"]):
             return 1.0
         if is_l and not (systematic in ["JESUp", "JESDown", "HFUp", "HFDown",
                                         "Stats1Up", "Stats1Down", "Stats2Up", "Stats2Down",
@@ -157,12 +160,16 @@ class BTagWeightCalculator:
             #print "no histogram", k
             return 1.0
 
+        if csv > 1:
+            csv = 1
+            
         csvbin = 1
         csvbin = h.FindBin(csv)
-
-        if csvbin <= 0 or csvbin > h.GetNbinsX():
-            #print "csv bin outside range", csv, csvbin
-            return 1.0
+        #This is to fix csv=-10 not being accounted for in CSV SF input hists
+        if csvbin <= 0:
+            csvbin = 1
+        if csvbin > h.GetNbinsX():
+            csvbin = h.GetNbinsX()
 
         w = h.GetBinContent(csvbin)
         return w
