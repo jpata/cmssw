@@ -111,7 +111,7 @@ class BTagWeightCalculator:
             pt   = getattr(jet, "pt")
             aeta = abs(getattr(jet, "eta"))
             fl   = abs(getattr(jet, "hadronFlavour"))
-            csv  = getattr(jet, self.btag)
+            csv  = getattr(jet, "btag")
         #if jet is a heppy Jet object
         else:
             #print "could not get jet", e

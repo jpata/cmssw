@@ -6,8 +6,8 @@ import ROOT
 
 csvpath = os.environ['CMSSW_BASE']+"/src/PhysicsTools/Heppy/data"
 bweightcalc = BTagWeightCalculator(
-    csvpath + "/csv_rwt_fit_hf_2015_11_20.root",
-    csvpath + "/csv_rwt_fit_lf_2015_11_20.root"
+    csvpath + "/csv_rwt_fit_hf_2015_12_14.root",
+    csvpath + "/csv_rwt_fit_lf_2015_12_14.root"
 )
 bweightcalc.btag = "btag"
 
@@ -32,6 +32,7 @@ for line in inf.readlines():
     ij = int(ij)
     fl = int(fl)
     if iev != iev_prev:
+        print "tot", ws["nominal"]
         for s in systs:
             hs[s].Fill(ws[s])
             ws[s] = 1.0
@@ -44,7 +45,8 @@ for line in inf.readlines():
     w = {
         s: bweightcalc.calcJetWeight(jet, "final", s) for s in systs
     }
-    print pt, eta, fl, csv, w["nominal"]
+    print line.strip(), w["nominal"]
+    
 
     for s in systs:
         ws[s] *= w[s]
