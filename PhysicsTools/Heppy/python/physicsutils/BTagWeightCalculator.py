@@ -31,6 +31,13 @@ class BTagWeightCalculator:
         self.btag = "pfCombinedInclusiveSecondaryVertexV2BJetTags"
         self.init(fn_hf, fn_lf)
 
+        # systematic uncertainties for different flavour assignments
+        self.systematics_for_b = ["JESUp", "JESDown", "LFUp", "LFDown",
+                                  "HFStats1Up", "HFStats1Down", "HFStats2Up", "HFStats2Down"]
+        self.systematics_for_c = ["cErr1Up", "cErr1Down", "cErr2Up", "cErr2Down"]
+        self.systematics_for_l = ["JESUp", "JESDown", "HFUp", "HFDown",
+                                  "LFStats1Up", "LFStats1Down", "LFStats2Up", "LFStats2Down"]
+
     def getBin(self, bvec, val):
         return int(bvec.searchsorted(val, side="right")) - 1
 
@@ -104,8 +111,7 @@ class BTagWeightCalculator:
              or a Heppy Jet
         kind: string specifying the name of the corrections. Usually "final".
         systematic: the correction systematic, e.g. "nominal", "JESUp", etc
-        returns: a float with the correction
-        """
+     """
         #if jet is a simple class with attributes
         if isinstance(getattr(jet, "pt"), float):
             pt   = getattr(jet, "pt")
@@ -127,18 +133,14 @@ class BTagWeightCalculator:
         is_c = (fl == 4)
         is_l = not (is_b or is_c)
 
-        if is_b and not (systematic in ["JESUp", "JESDown", "LFUp", "LFDown",
-                                        "Stats1Up", "Stats1Down", "Stats2Up", "Stats2Down",
-                                        "nominal"]):
-            return 1.0
-        if is_c and not (systematic in ["cErr1Up", "cErr1Down", "cErr2Up", "cErr2Down",
-                                        "nominal", "CUp", "CDown"]):
-            return 1.0
-        if is_l and not (systematic in ["JESUp", "JESDown", "HFUp", "HFDown",
-                                        "Stats1Up", "Stats1Down", "Stats2Up", "Stats2Down",
-                                        "nominal"]):
-            return 1.0
+        #if evaluating a weight for systematic uncertainties, make sure the jet is affected. If not, return 'nominal' weight
+        if systematic != "nominal":
+            if (is_b and systematic not in self.systematics_for_b) or (is_c and systematic not in self.systematics_for_c) or (is_l and systematic not in self.systematics_for_l):
+                systematic = "nominal"
 
+        #needed because the TH1 names for Stats are same for HF and LF
+        if "Stats" in systematic:
+            systematic = systematic[2:]
 
         if is_b or is_c:
             ptbin = self.getBin(self.pt_bins_hf, pt)
