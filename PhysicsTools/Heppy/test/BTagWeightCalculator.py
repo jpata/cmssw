@@ -16,7 +16,7 @@ class Jet:
 
 inf = open("jets.csv")
 
-systs = ["nominal", "JESUp", "JESDown"]
+systs = ["nominal", "JESUp", "JESDown", "HFUp", "HFDown", "LFUp", "LFDown", "Stats1Up", "Stats1Down", "Stats2Up", "Stats2Down",]
 
 hs = {
     s: ROOT.TH1D("weight_"+s, "weight", 100, 0, 2) for s in systs
