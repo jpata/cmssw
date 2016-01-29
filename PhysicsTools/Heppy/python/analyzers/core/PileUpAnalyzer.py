@@ -64,9 +64,9 @@ class PileUpAnalyzer( Analyzer ):
             else:
                 assert( os.path.isfile(os.path.expandvars(self.cfg_comp.puFileMC)) )
                 assert( os.path.isfile(os.path.expandvars(self.cfg_comp.puFileData)) )
-
+                                
                 self.mcfile = TFile( self.cfg_comp.puFileMC )
-                self.mchist = self.mcfile.Get('pileup')
+                self.mchist = self.mcfile.Get('h_numTruePVs')
                 self.mchist.Scale( 1 / self.mchist.Integral() )
 
                 self.datafile = TFile( self.cfg_comp.puFileData )
