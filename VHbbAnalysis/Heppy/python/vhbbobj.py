@@ -33,6 +33,7 @@ leptonTypeVHbb = NTupleObjectType("leptonTypeVHbb", baseObjectTypes = [ leptonTy
     NTupleVariable("eleMVAIdSpring15NonTrig", lambda x : max(x.mvaIdSpring15NonTrigMedium, 2*x.mvaIdSpring15NonTrigTight) if abs(x.pdgId()) == 11 and hasattr(x,"mvaIdSpring15NonTrigMedium")  else -1, int, help="EGamma POG MVA ID for non-triggering electrons (0=none, 1=WP90, 2=WP80, Spring15 training); 1 for muons"),
     NTupleVariable("eleMVArawSpring16GenPurp", lambda x : getattr(x,"mvaRawSpring16GeneralPurpose",-2) if abs(x.pdgId()) == 11 else -1, help="EGamma POG MVA ID for non-triggering electrons (raw MVA value, Spring15 training); 1 for muons"),
     NTupleVariable("eleMVAIdSppring16GenPurp", lambda x : max(x.mvaIdSpring16GeneralPurposePOG90, 2*x.mvaIdSpring16GeneralPurposePOG80) if abs(x.pdgId()) == 11 and hasattr(x,"mvaIdSpring16GeneralPurposePOG90")  else -1, int, help="EGamma POG MVA ID for non-triggering electrons (0=none, 1=WP90, 2=WP80, Spring15 training); 1 for muons"),
+    NTupleVariable("eleCutIdSummer16", lambda x : (1*x.cutIdSummer16Veto + 1*x.cutIdSummer16Loose + 1*x.cutIdSummer16Medium + 1*x.cutIdSummer16Tight) if abs(x.pdgId()) == 11 and hasattr(x,"cutIdSummer16Veto") else -1, int, help="Electron cut-based id (POG Summer16_80X_v1): 0=none, 1=veto, 2=loose, 3=medium, 4=tight; 1 for muons"),
     ##NTupleVariable("tightCharge",  lambda lepton : ( lepton.isGsfCtfScPixChargeConsistent() + lepton.isGsfScPixChargeConsistent() ) if abs(lepton.pdgId()) == 11 else 2*(lepton.innerTrack().ptError()/lepton.innerTrack().pt() < 0.2), int, help="Tight charge criteria"),
     # Muon-speficic info
     NTupleVariable("nStations",    lambda lepton : lepton.numberOfMatchedStations() if abs(lepton.pdgId()) == 13 else 4, help="Number of matched muons stations (4 for electrons)"),
@@ -200,6 +201,7 @@ jetTypeVHbb.variables += [NTupleVariable("bTagWeight",
 
 # add the POG SF
 from VHbbAnalysis.Heppy.btagSF import btagSFhandle, get_SF
+from VHbbAnalysis.Heppy.btagSF import systematicsCSV, systematicsCMVAV2
 
 for algo in ["CSV", "CMVAV2"]:
     for wp in [ "L", "M", "T" ]:
@@ -209,7 +211,8 @@ for algo in ["CSV", "CMVAV2"]:
                                                       get_SF(x.pt(), x.eta(), x.hadronFlavour(), 0.0, syst, algo, wp, False, btagSFhandle)
                                                       , float, mcOnly=True, help="b-tag "+algo+wp+" POG scale factor, "+syst  )]
 
-    for syst in ["central", "up_jes", "down_jes", "up_lf", "down_lf", "up_hf", "down_hf", "up_hfstats1", "down_hfstats1", "up_hfstats2", "down_hfstats2", "up_lfstats1", "down_lfstats1", "up_lfstats2", "down_lfstats2", "up_cferr1", "down_cferr1", "up_cferr2", "down_cferr2"]:
+    systematics = systematicsCSV if algo=="CSV" else systematicsCMVAV2
+    for syst in systematics:
         syst_name = "" if syst=="central" else ("_"+syst) 
         jetTypeVHbb.variables += [ NTupleVariable("btagWeight"+algo+syst_name,  lambda x, get_SF=get_SF, syst=syst, algo=algo, wp=wp, btagSFhandle=btagSFhandle : 
                                                       get_SF(x.pt(), x.eta(), x.hadronFlavour(), (x.btag("pfCombinedInclusiveSecondaryVertexV2BJetTags") if algo=="CSV" else x.btag('pfCombinedMVAV2BJetTags')), syst, algo, wp, True, btagSFhandle)

@@ -9,6 +9,10 @@ class BTagSFHandle:
     
 btagSFhandle=BTagSFHandle()
 
+systematicsCSV = ["central", "up_jesAbsoluteMPFBias", "down_jesAbsoluteMPFBias", "up_jesAbsoluteScale", "down_jesAbsoluteScale", "up_jesFlavorQCD", "down_jesFlavorQCD", "up_jesPileUpDataMC", "down_jesPileUpDataMC", "up_jesPileUpPtBB", "down_jesPileUpPtBB", "up_jesPileUpPtEC1", "down_jesPileUpPtEC1", "up_jesPileUpPtRef", "down_jesPileUpPtRef", "up_jesRelativeFSR", "down_jesRelativeFSR", "up_jesSinglePionECAL", "down_jesSinglePionECAL", "up_jesSinglePionHCAL", "down_jesSinglePionHCAL", "up_jesTimePtEta", "down_jesTimePtEta", "up_jes", "down_jes", "up_lf", "down_lf", "up_hf", "down_hf", "up_hfstats1", "down_hfstats1", "up_hfstats2", "down_hfstats2", "up_lfstats1", "down_lfstats1", "up_lfstats2", "down_lfstats2", "up_cferr1", "down_cferr1", "up_cferr2", "down_cferr2"]
+
+systematicsCMVAV2 = ["central", "up_jes", "down_jes", "up_lf", "down_lf", "up_hf", "down_hf", "up_hfstats1", "down_hfstats1", "up_hfstats2", "down_hfstats2", "up_lfstats1", "down_lfstats1", "up_lfstats2", "down_lfstats2", "up_cferr1", "down_cferr1", "up_cferr2", "down_cferr2"]
+
 def initBTagSF () :
 # load the BTagCalibrationStandalone.cc macro from https://twiki.cern.ch/twiki/bin/view/CMS/BTagCalibration
     btagSFhandle.initialized=True
@@ -21,8 +25,8 @@ def initBTagSF () :
 # cMVAv2
     btagSFhandle.calib_cmva = ROOT.BTagCalibration("cmvav2", csvpath+"/cMVAv2_ichep.csv")
 
-
-    btagSFhandle.calib_csv_reweight = ROOT.BTagCalibration("csvv2", csvpath+"/ttH_BTV_CSVv2_13TeV_2016All_2017_3_30.csv")
+# CSVv2
+    btagSFhandle.calib_csv_reweight = ROOT.BTagCalibration("csvv2", csvpath+"/ttH_BTV_CSVv2_13TeV_2016All_2017_dsalerno.csv")   
 # cMVAv2
     btagSFhandle.calib_cmva_reweight = ROOT.BTagCalibration("cmvav2", csvpath+"/ttH_BTV_cMVAv2_13TeV_2016All_2017_3_30.csv")
 
@@ -66,7 +70,8 @@ def initBTagSF () :
 			btagSFhandle.btag_calibrators[algo+wp[1]+"_"+syst+"_"+fl].load(btagSFhandle.sf_type_map[algo]["file"], i,btagSFhandle.sf_type_map[algo][fl])
 
     for algo in ["CSV", "CMVAV2"]:
-	for syst in ["central", "up_jes", "down_jes", "up_lf", "down_lf", "up_hf", "down_hf", "up_hfstats1", "down_hfstats1", "up_hfstats2", "down_hfstats2", "up_lfstats1", "down_lfstats1", "up_lfstats2", "down_lfstats2", "up_cferr1", "down_cferr1", "up_cferr2", "down_cferr2"]:
+        systematics = systematicsCSV if algo=="CSV" else systematicsCMVAV2
+        for syst in systematics:
 	    print "[btagSF]: Loading calibrator for algo:", algo, "systematic:", syst
 	    btagSFhandle.btag_calibrators[algo+"_iterative_"+syst] = ROOT.BTagCalibrationReader( 3 ,  syst)
 	    for i in [0,1,2]:
@@ -74,11 +79,11 @@ def initBTagSF () :
 
 # depending on flavour, only a sample of systematics matter
 def applies( flavour, syst ):
-    if flavour==5 and syst not in ["central", "up_jes", "down_jes",  "up_lf", "down_lf",  "up_hfstats1", "down_hfstats1", "up_hfstats2", "down_hfstats2"]:
+    if flavour==5 and syst in ["up_hf", "down_hf",  "up_lfstats1", "down_lfstats1", "up_lfstats2", "down_lfstats2"] or "cferr" in syst:
         return False
     elif flavour==4 and syst not in ["central", "up_cferr1", "down_cferr1", "up_cferr2", "down_cferr2" ]:
         return False
-    elif flavour==0 and syst not in ["central", "up_jes", "down_jes", "up_hf", "down_hf",  "up_lfstats1", "down_lfstats1", "up_lfstats2", "down_lfstats2" ]:
+    elif flavour==0 and syst in ["up_lf", "down_lf", "up_hfstats1", "down_hfstats1", "up_hfstats2", "down_hfstats2"] or "cferr" in syst:
         return False
 
     return True
@@ -158,7 +163,8 @@ if debug_btagSF:
     print "Iterative:"
     for algo in ["CSV", "CMVAV2"]:
         print algo+":"
-        for syst in ["central", "up_jes", "down_jes", "up_lf", "down_lf", "up_hf", "down_hf", "up_hfstats1", "down_hfstats1", "up_hfstats2", "down_hfstats2", "up_lfstats1", "down_lfstats1", "up_lfstats2", "down_lfstats2", "up_cferr1", "down_cferr1", "up_cferr2", "down_cferr2"]:
+        systematics = systematicsCSV if algo=="CSV" else systematicsCMVAV2
+        for syst in systematics:
             print "\t"+syst+":"
             for pt in [50.]:
                 print ("\t\tB(pt=%.0f, eta=0.0): %.3f" % (pt, get_SF(pt=pt, eta=0.0, fl=5, val=0.89, syst=syst, algo=algo, wp="", shape_corr=True)))

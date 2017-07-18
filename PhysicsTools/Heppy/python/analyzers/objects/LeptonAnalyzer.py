@@ -141,6 +141,11 @@ class LeptonAnalyzer( Analyzer ):
             self.handles['eleMVAIdSpring16GeneralPurposePOG90'] = AutoHandle( self.cfg_ana.eleMVAIdSpring16GeneralPurposePOG90, 'edm::ValueMap<bool>')
             self.handles['eleMVArawSpring16GeneralPurpose']     = AutoHandle( self.cfg_ana.eleMVArawSpring16GeneralPurpose, 'edm::ValueMap<float>')
 
+        self.handles['eleCutIdSummer16Veto'] = AutoHandle( self.cfg_ana.eleCutIdSummer16Veto, 'edm::ValueMap<bool>')
+        self.handles['eleCutIdSummer16Loose'] = AutoHandle( self.cfg_ana.eleCutIdSummer16Loose, 'edm::ValueMap<bool>')
+        self.handles['eleCutIdSummer16Medium'] = AutoHandle( self.cfg_ana.eleCutIdSummer16Medium, 'edm::ValueMap<bool>')
+        self.handles['eleCutIdSummer16Tight'] = AutoHandle( self.cfg_ana.eleCutIdSummer16Tight, 'edm::ValueMap<bool>')
+
         if self.doMiniIsolation or self.doIsolationScan:
             self.handles['packedCandidates'] = AutoHandle( self.cfg_ana.packedCandidates, 'std::vector<pat::PackedCandidate>')
 
@@ -478,7 +483,17 @@ class LeptonAnalyzer( Analyzer ):
                 ele.mvaIdSpring16GeneralPurposePOG80 = eleMVAIdSpring16GeneralPurposePOG80.get(ie)
                 ele.mvaIdSpring16GeneralPurposePOG90 = eleMVAIdSpring16GeneralPurposePOG90.get(ie)
                 ele.mvaRawSpring16GeneralPurpose     = eleMVArawSpring16GeneralPurpose.get(ie)
-        
+
+        eleCutIdSummer16Veto = self.handles['eleCutIdSummer16Veto'].product()
+        eleCutIdSummer16Loose = self.handles['eleCutIdSummer16Loose'].product()
+        eleCutIdSummer16Medium = self.handles['eleCutIdSummer16Medium'].product()
+        eleCutIdSummer16Tight = self.handles['eleCutIdSummer16Tight'].product()
+        for ie, ele in enumerate(allelectrons):
+            ele.cutIdSummer16Veto = eleCutIdSummer16Veto.get(ie)
+            ele.cutIdSummer16Loose = eleCutIdSummer16Loose.get(ie)
+            ele.cutIdSummer16Medium = eleCutIdSummer16Medium.get(ie)
+            ele.cutIdSummer16Tight = eleCutIdSummer16Tight.get(ie)
+
         return allelectrons 
 
     def attachMiniIsolation(self, mu):
@@ -774,6 +789,10 @@ setattr(LeptonAnalyzer,"defaultConfig",cfg.Analyzer(
     eleMVAIdSpring16GeneralPurposePOG80 = "egmGsfElectronIDs:mvaEleID-Spring16-GeneralPurpose-V1-wp80",
     eleMVAIdSpring16GeneralPurposePOG90 = "egmGsfElectronIDs:mvaEleID-Spring16-GeneralPurpose-V1-wp90",
     eleMVArawSpring16GeneralPurpose     = "electronMVAValueMapProducer:ElectronMVAEstimatorRun2Spring16GeneralPurposeV1Values",
+    eleCutIdSummer16Veto = "egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-veto",
+    eleCutIdSummer16Loose = "egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-loose",
+    eleCutIdSummer16Medium = "egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-medium",
+    eleCutIdSummer16Tight = "egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-tight",
     # muon isolation correction method (can be "rhoArea" or "deltaBeta")
     mu_isoCorr = "rhoArea" ,
     mu_effectiveAreas = "Spring15_25ns_v1", #(can be 'Data2012' or 'Phys14_25ns_v1' or 'Spring15_25ns_v1')
