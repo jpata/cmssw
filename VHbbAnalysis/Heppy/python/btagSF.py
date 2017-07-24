@@ -79,13 +79,12 @@ def initBTagSF () :
 
 # depending on flavour, only a sample of systematics matter
 def applies( flavour, syst ):
-    if flavour==5 and syst in ["up_hf", "down_hf",  "up_lfstats1", "down_lfstats1", "up_lfstats2", "down_lfstats2"] or "cferr" in syst:
+    if flavour==5 and (syst in ["up_hf", "down_hf",  "up_lfstats1", "down_lfstats1", "up_lfstats2", "down_lfstats2"] or "cferr" in syst):
         return False
     elif flavour==4 and syst not in ["central", "up_cferr1", "down_cferr1", "up_cferr2", "down_cferr2" ]:
         return False
-    elif flavour==0 and syst in ["up_lf", "down_lf", "up_hfstats1", "down_hfstats1", "up_hfstats2", "down_hfstats2"] or "cferr" in syst:
+    elif flavour==0 and (syst in ["up_lf", "down_lf", "up_hfstats1", "down_hfstats1", "up_hfstats2", "down_hfstats2"] or "cferr" in syst):
         return False
-
     return True
 
 
