@@ -215,6 +215,7 @@ class RunMETCorrectionsAndUncertainties(ConfigToolBase):
         self.setParameter('addToPatDefaultSequence',addToPatDefaultSequence),
         self.setParameter('jetSelection',jetSelection),
         self.setParameter('recoMetFromPFCs',recoMetFromPFCs),
+        self.setParameter('reclusterJets',reclusterJets),
         self.setParameter('runOnData',runOnData),
         self.setParameter('onMiniAOD',onMiniAOD),
         self.setParameter('postfix',postfix),
@@ -240,8 +241,8 @@ class RunMETCorrectionsAndUncertainties(ConfigToolBase):
             self.jetConfiguration()
         
         #met reprocessing and jet reclustering
-        if recoMetFromPFCs:
-            self.setParameter('reclusterJets',True)
+        #if recoMetFromPFCs:
+        #    self.setParameter('reclusterJets',True)
         
         #ZD: puppi jet reclustering breaks the puppi jets
         #overwriting of jet reclustering parameter for puppi
@@ -250,7 +251,7 @@ class RunMETCorrectionsAndUncertainties(ConfigToolBase):
 
         #jet collection overloading for automatic jet reclustering or JEC application
         if reclusterJets:
-            self.setParameter('jetCollectionUnskimmed',cms.InputTag('patJets'))
+            self.setParameter('jetCollectionUnskimmed',cms.InputTag('patJets'+postfix))
             
         self.apply(process)
         
@@ -1377,16 +1378,16 @@ class RunMETCorrectionsAndUncertainties(ConfigToolBase):
             if self._parameters["onMiniAOD"].value: 
                 pfCHS = cms.EDFilter("CandPtrSelector", src = pfCandCollection, cut = cms.string("fromPV"))
             else:
-                setattr( process, "tmpPFCandCollPtr", cms.EDProducer("PFCandidateFwdPtrProducer",
+                setattr( process, "tmpPFCandCollPtr"+postfix, cms.EDProducer("PFCandidateFwdPtrProducer",
                                                                      src = pfCandCollection ) )
                 process.load("CommonTools.ParticleFlow.pfNoPileUpJME_cff")
                 configtools.cloneProcessingSnippet(process, getattr(process,"pfNoPileUpJMESequence"), postfix )
-                getattr(process, "pfPileUpJME"+postfix).PFCandidates = cms.InputTag("tmpPFCandCollPtr")
-                pfCHS = getattr(process, "pfNoPileUpJME").clone( bottomCollection = cms.InputTag("tmpPFCandCollPtr") )
-            
-            if not hasattr(process, "pfCHS"+postfix):
-                setattr(process,"pfCHS"+postfix,pfCHS)
-            pfCandColl = cms.InputTag("pfCHS"+postfix)
+                getattr(process, "pfPileUpJME"+postfix).PFCandidates = cms.InputTag("tmpPFCandCollPtr"+postfix)
+                setattr(process, "pfNoPileUpJME"+postfix,
+                        getattr(process, "pfNoPileUpJME"+postfix).clone( 
+                        bottomCollection = cms.InputTag("tmpPFCandCollPtr"+postfix) )
+                        )
+                pfCandColl = cms.InputTag("pfNoPileUpJME"+postfix)
                    
 
         jetColName+=postfix
@@ -1622,6 +1623,7 @@ def runMetCorAndUncForMiniAODProduction(process, metType="PF",
                                         jecUnFile="",
                                         jetFlavor="AK4PFchs",
                                         recoMetFromPFCs=False,
+                                        reclusterJets=False,
                                         postfix=""):
 
     runMETCorrectionsAndUncertainties = RunMETCorrectionsAndUncertainties()
@@ -1643,6 +1645,7 @@ def runMetCorAndUncForMiniAODProduction(process, metType="PF",
                                       jetSelection=jetSelection,
                                       jetFlavor=jetFlavor,
                                       recoMetFromPFCs=recoMetFromPFCs,
+                                      reclusterJets=reclusterJets,
                                       postfix=postfix
                                       )
     
@@ -1663,6 +1666,7 @@ def runMetCorAndUncForMiniAODProduction(process, metType="PF",
                                       jetSelection=jetSelection,
                                       jetFlavor=jetFlavor,
                                       recoMetFromPFCs=recoMetFromPFCs,
+                                      reclusterJets=reclusterJets,
                                       postfix=postfix
                                       )
     
@@ -1683,6 +1687,7 @@ def runMetCorAndUncForMiniAODProduction(process, metType="PF",
                                       jetSelection=jetSelection,
                                       jetFlavor=jetFlavor,
                                       recoMetFromPFCs=recoMetFromPFCs,
+                                      reclusterJets=reclusterJets,
                                       postfix=postfix,
                                       )
 

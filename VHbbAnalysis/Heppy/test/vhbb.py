@@ -192,9 +192,11 @@ shifted_met_names = ["met_shifted_%s"%metNames[n] for n in range(12)] #we do not
 shifted_mets = {mk: NTupleObject(nm, shiftedMetType, help="PF E_{T}^{miss}, after default type 1 corrections, shifted with %s" %mk) for mk,nm in zip(shifted_met_keys,shifted_met_names)}
 treeProducer.globalObjects.update(shifted_mets)
 
+from VHbbAnalysis.Heppy.btagSF import systematicsCSV, systematicsCMVAV2
 btag_weights = {}
 for algo in ["CSV", "CMVAV2"]:
-	for syst in ["central", "up_jes", "down_jes", "up_lf", "down_lf", "up_hf", "down_hf", "up_hfstats1", "down_hfstats1", "up_hfstats2", "down_hfstats2", "up_lfstats1", "down_lfstats1", "up_lfstats2", "down_lfstats2", "up_cferr1", "down_cferr1", "up_cferr2", "down_cferr2"]:
+	systematics = systematicsCSV if algo=="CSV" else systematicsCMVAV2
+	for syst in systematics:
 		syst_name = "" if syst=="central" else ("_"+syst) 
 		btag_weights["btagWeight"+algo+syst_name] = NTupleVariable("btagWeight"+algo+syst_name,
 									   lambda ev, get_event_SF=get_event_SF, syst=syst, algo=algo, btagSFhandle=btagSFhandle : get_event_SF(ev.cleanJetsAll, syst, algo, btagSFhandle)
@@ -350,6 +352,7 @@ factorizedJetCorrections = [
         "RelativeFSR",
         "RelativeStatFSR",
         "RelativeStatEC",
+	#"RelativeStatEC2", #DS when will it be available?
         "RelativeStatHF",
         "PileUpDataMC",
         "PileUpPtRef",
@@ -463,7 +466,7 @@ VHbb = cfg.Analyzer(
     higgsJetsPreSelection = lambda x: (( x.puJetId() > 0 and x.jetID('POG_PFID_Loose')) or abs(x.eta())>3.0 ) and x.pt() >  20 ,
     higgsJetsPreSelectionVBF = lambda x: x.pt() >  20 ,
 #    higgsJetsPreSelectionVBF = lambda x: (( x.puJetId() > 0 and x.jetID('POG_PFID_Loose')) or abs(x.eta())>3.0 ) and x.pt() >  20,
-    passall=True,
+    passall=False,
     doSoftActivityVH=True,
     doZllKinematicFit=True,
     doSoftActivityEWK=True,
