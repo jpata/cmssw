@@ -28,4 +28,4 @@ transfer_output_remaps = "step3.log=step3.$(Cluster).$(Process).log;step3.root=s
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 
-Queue 50
+Queue 100

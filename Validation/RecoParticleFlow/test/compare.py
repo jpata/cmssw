@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 import sys
+import os
+import ROOT
 
 # This is an example of plotting the standard tracking validation
 # plots from an explicit set of DQM root files.
 
 from Validation.RecoTrack.plotting.validation import SimpleValidation, SimpleSample
-import Validation.RecoTrack.plotting.trackingPlots as trackingPlots
-import Validation.RecoVertex.plotting.vertexPlots as vertexPlots
 
 from Validation.RecoTrack.plotting.plotting import Subtract, FakeDuplicate, CutEfficiency, Transform, AggregateBins, ROC, Plot, PlotEmpty, PlotGroup, PlotOnSideGroup, PlotFolder, Plotter
 from Validation.RecoTrack.plotting.html import PlotPurpose
@@ -19,52 +19,63 @@ plotterDrawArgs = dict(
 #    ratio=False,   # Uncomment to disable ratio pad
 )
 
-if len(sys.argv) != 3:
-    print "Usage: compare.py path1 path2"
-    print "where path1 and path2 are the folders that contain the [TTBar|QCD|ZMM]/DQM*.root output of 'make all'"
-    sys.exit(0)
+def parse_sample_string(ss):
+    spl = ss.split(":")
+    if not (len(spl) >= 3):
+        raise Exception("Sample must be in the format name:DQMfile1.root:DQMfile2.root:...")
+    
+    name = spl[0]
+    files = spl[1:]
+    for fi in files:
+        if not os.path.isfile(fi):
+            raise FileError("Could not read DQM file {0}".format(fi))
+    return name, files
+  
+def parse_args():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-s", "--sample", type=str, action='append')
+    parser.add_argument("-p", "--plots", type=str, action='append', default=None)
+    args = parser.parse_args()
 
-#paths to the relval runs
-path1 = sys.argv[1]
-path2 = sys.argv[2]
+    #collect all the SimpleSample objects    
+    samples = []
+    plots = []
+ 
+    sample_strings = args.sample
+    for ss in sample_strings:
+        name, files = parse_sample_string(ss)
+        samp = SimpleSample(name, name, [(fn, "Option {0}".format(i)) for fn, i in zip(files, range(len(files)))])
+        samples += [samp]
+    
+    if not (args.plots is None):
+        pass
+ 
+    return samples, plots
 
-# Pairs of file names and legend labels
-filesLabels = [
-    (path1 + "/TTbar/DQM_V0001_R000000001__Global__CMSSW_X_Y_Z__RECO.root", "Option 1"),
-    (path2 + "/TTbar/DQM_V0001_R000000001__Global__CMSSW_X_Y_Z__RECO.root", "Option 2"),
-]
-# Files are grouped together as a "sample" (the files don't
-# necessarily have to come from the same sample, like ttbar, but this
-# is the abstraction here)
-sample1 = SimpleSample("RelVal_TTbar13", # Prefix for subdirectory names
-                      "RelVal_TTbar13",   # The name appears in the HTML pages
-                      filesLabels)     # Files and legend labels
+samples, plots = parse_args()
 
-filesLabels = [
-    (path1 + "/QCD/DQM_V0001_R000000001__Global__CMSSW_X_Y_Z__RECO.root", "Option 1"),
-    (path2 + "/QCD/DQM_V0001_R000000001__Global__CMSSW_X_Y_Z__RECO.root", "Option 2"),
-]
-sample2 = SimpleSample("RelVal_QCD", # Prefix for subdirectory names
-                      "RelVal_QCD",   # The name appears in the HTML pages
-                      filesLabels)     # Files and legend labels
+def getall(d, basepath="/"):
+    "Generator function to recurse into a ROOT file/dir and yield (path, obj) pairs"
+    for key in d.GetListOfKeys():
+        kname = key.GetName()
+        if key.IsFolder():
+            for i in getall(d.Get(kname), basepath+kname+"/"):
+                yield i
+        else:
+            yield basepath+kname, d.Get(kname).ClassName()
 
-filesLabels = [
-    (path1 + "/ZMM/DQM_V0001_R000000001__Global__CMSSW_X_Y_Z__RECO.root", "Option 1"),
-    (path2 + "/ZMM/DQM_V0001_R000000001__Global__CMSSW_X_Y_Z__RECO.root", "Option 2"),
-]
-sample3 = SimpleSample("RelVal_ZMM", # Prefix for subdirectory names
-                      "RelVal_ZMM",   # The name appears in the HTML pages
-                      filesLabels)     # Files and legend labels
+if len(plots) == 0:
+    for samp in samples:
+        for fn, label in samp._fileLegends:
+            print fn
+            tf = ROOT.TFile(fn)
+            tf.ReadAll()
+            for name, objtype in getall(tf):
+                if objtype.startswith("TH1"):
+                    print name
 
-# You can produce plots for multiple samples on one. Just construct
-# multiple SimpleSample objects like above and add them to the list
-# below.
-samples = [
-    sample1,
-    sample2,
-    sample3
-]
-
+ 
 def addPlots(plotter, folder, name, section, bin_range):
     folders = [folder]
     plots = [PlotGroup(name, [Plot("Bin{0}".format(ibin)) for ibin in bin_range])]

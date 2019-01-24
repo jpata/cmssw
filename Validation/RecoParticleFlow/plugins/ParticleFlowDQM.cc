@@ -138,21 +138,21 @@ void ParticleFlowDQM::fillJetResponse(
     edm::View<reco::Jet>& genJetCollection)
 {
 
-    //match reco jets to gen jets by DeltaR
+    //match gen jets to reco jets by DeltaR
     std::vector<int> matchIndices;
-    PFB::match(recoJetCollection, genJetCollection, matchIndices, false, jetDeltaR);
+    PFB::match(genJetCollection, recoJetCollection, matchIndices, false, jetDeltaR);
 
-    for (unsigned int i = 0; i < recoJetCollection.size(); i++) {
+    for (unsigned int i = 0; i < genJetCollection.size(); i++) {
 
-        const auto& recoJet = recoJetCollection.at(i);
+        const auto& genJet = genJetCollection.at(i);
         int iMatch = matchIndices[i];
 
         //If reco jet had a matched gen-jet
         if (iMatch != -1) {
-            const auto& matchedJet = genJetCollection[iMatch];
+            const auto& recoJet = recoJetCollection[iMatch];
             const auto pt_reco = recoJet.pt();
-            const auto pt_gen = matchedJet.pt();
-            const auto eta_gen = abs(matchedJet.eta());
+            const auto pt_gen = genJet.pt();
+            const auto eta_gen = abs(recoJet.eta());
             const auto response = pt_reco / pt_gen;
 
             //Loop linearly through all plots and check if they match the pt and eta bin
