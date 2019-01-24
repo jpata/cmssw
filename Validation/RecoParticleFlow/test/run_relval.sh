@@ -4,7 +4,7 @@
 #https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideCmsDriver
 #https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookDataFormats
 
-env
+#env
 
 #abort on error
 set -e
@@ -120,8 +120,8 @@ elif [ $STEP == "DQM" ]; then
     cmsDriver.py step6 --conditions $CONDITIONS -s HARVESTING:@pfDQM --era $ERA --filetype DQM --filein file:step5.root --fileout file:step6.root | tee step6.log 2>&1
 fi
 
-echo "Exit code was $?"
-tail -n3 *.log
+#echo "Exit code was $?"
+#tail -n3 *.log
 
 cd ..
 
