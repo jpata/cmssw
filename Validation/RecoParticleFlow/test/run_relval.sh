@@ -78,8 +78,8 @@ fi
 SKIPEVENTS=$(($NJOB * $PERJOB))
 
 #Just print out environment last time for debugging
-echo $INPUT_FILE $NAME $STEP $SKIPEVENTS
-env
+echo $INPUT_FILELIST $NAME $STEP $SKIPEVENTS
+#env
 
 if [ $STEP == "RECO" ]; then
     #Start of workflow

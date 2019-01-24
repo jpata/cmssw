@@ -38,6 +38,9 @@ condor_submit $CMSSW_BASE/src/Validation/RecoParticleFlow/test/condor_sub.jdl
 
 #wait for jobs to finish, monitor using `condor_q`
 
+#remove dummy output files from jobs that failed
+du *.root | grep "^0" | awk '{print $2}' | xargs rm
+
 cd ..
 $CMSSW_BASE/src/Validation/RecoParticleFlow/test/run_relval.sh QCD dqm 0
 ~~~
