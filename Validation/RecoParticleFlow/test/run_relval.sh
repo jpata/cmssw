@@ -7,7 +7,7 @@
 #env
 
 #abort on error
-set -e
+set +e
 
 
 #number of events to process per job
@@ -109,12 +109,12 @@ elif [ $STEP == "DQM" ]; then
     cd $NAME
     
     #get all the filenames and make them into a python-compatible list of strings
-    STEP3FNS=`ls -1 step3*.root | sed 's/^/"file:/;s/$/",/' | tr '\n' ' '`
+    STEP3FNS=`ls -1 step3.*.*.root | sed 's/^/"file:/;s/$/",/' | tr '\n' ' '`
     echo "step3 filenames for DQM: "$STEP3FNS
 
     #Run the DQM sequences (PF DQM only)
     #override the filenames here as cmsDriver does not allow multiple input files and there is no easy way to merge EDM files
-    cmsDriver.py step5 --customise_commands="process.source.fileNames=cms.untracked.vstring($STEP3FNS)" --conditions $CONDITIONS -s DQM:@pfDQM --datatier DQMIO --nThreads $NTHREADS --era $ERA --eventcontent DQM --filein step3*.root --fileout file:step5.root | tee step5.log 2>&1
+    cmsDriver.py step5 --customise_commands="process.source.fileNames=cms.untracked.vstring($STEP3FNS)" --conditions $CONDITIONS -s DQM:@pfDQM --datatier DQMIO --nThreads $NTHREADS --era $ERA --eventcontent DQM --filein DUMMY --fileout file:step5.root -n -1 | tee step5.log 2>&1
 
     #Harvesting converts the histograms stored in TTrees to be stored in folders by run etc
     cmsDriver.py step6 --conditions $CONDITIONS -s HARVESTING:@pfDQM --era $ERA --filetype DQM --filein file:step5.root --fileout file:step6.root | tee step6.log 2>&1
