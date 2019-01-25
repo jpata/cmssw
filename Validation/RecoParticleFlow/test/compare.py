@@ -2,6 +2,7 @@
 import sys
 import os
 import ROOT
+import argparse
 
 # This is an example of plotting the standard tracking validation
 # plots from an explicit set of DQM root files.
@@ -11,14 +12,6 @@ from Validation.RecoTrack.plotting.validation import SimpleValidation, SimpleSam
 from Validation.RecoTrack.plotting.plotting import Subtract, FakeDuplicate, CutEfficiency, Transform, AggregateBins, ROC, Plot, PlotEmpty, PlotGroup, PlotOnSideGroup, PlotFolder, Plotter
 from Validation.RecoTrack.plotting.html import PlotPurpose
 
-outputDir = "plots" # Plot output directory
-description = "Simple ParticleFlow comparison"
-
-plotterDrawArgs = dict(
-    separate=False, # Set to true if you want each plot in it's own canvas
-#    ratio=False,   # Uncomment to disable ratio pad
-)
-
 def parse_sample_string(ss):
     spl = ss.split(":")
     if not (len(spl) >= 3):
@@ -26,16 +19,48 @@ def parse_sample_string(ss):
     
     name = spl[0]
     files = spl[1:]
+
+    #check that all supplied files are actually ROOT files
     for fi in files:
+        print "Trying to open DQM file {0} for sample {1}".format(fi, name)
         if not os.path.isfile(fi):
-            raise FileError("Could not read DQM file {0}".format(fi))
+            raise Exception("Could not read DQM file {0}, it does not exist".format(fi))
+        tf = ROOT.TFile(fi)
+        if not tf:
+            raise Exception("Could not read DQM file {0}, it's not a ROOT file".format(fi))
+        d = tf.Get("DQMData/Run 1/Physics/Run summary")
+        if not d:
+            raise Exception("Could not read DQM file {0}, it's does not seem to be a harvested DQM file".format(fi))
     return name, files
-  
+
+def parse_plot_string(ss):
+    spl = ss.split(":")
+    if not (len(spl) >= 3):
+        raise Exception("Plot must be in the format folder:name:hist1:hist2:...")
+    
+    folder = spl[0]
+    name = spl[1]
+    histograms = spl[2:]
+
+    return folder, name, histograms
+
 def parse_args():
-    import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("-s", "--sample", type=str, action='append')
-    parser.add_argument("-p", "--plots", type=str, action='append', default=None)
+    parser.add_argument("-s", "--sample", type=str, action='append',
+        required=False,
+        help="DQM files to compare for a single sample, in the format 'name:file1.root:file2.root:...:fileN.root'",
+        default=[
+            "QCD:DQM_V0001_R000000001__Global__CMSSW_X_Y_Z__RECO.root:DQM_V0001_R000000001__Global__CMSSW_X_Y_Z__RECO.root"
+        ]
+    )
+    parser.add_argument("-p", "--plots",
+        type=str, action='append',
+        required=False,
+        help="Plots to put on a single canvas, in the format 'folder:name:plot1:plot2:...:plotN'",
+        default=[
+            "JetResponse:reso_dist_10_24:reso_dist_10_24_eta05:reso_dist_10_24_eta13"
+        ]
+    )
     args = parser.parse_args()
 
     #collect all the SimpleSample objects    
@@ -48,51 +73,40 @@ def parse_args():
         samp = SimpleSample(name, name, [(fn, "Option {0}".format(i)) for fn, i in zip(files, range(len(files)))])
         samples += [samp]
     
-    if not (args.plots is None):
-        pass
+    for ss in args.plots:
+        folder, name, histograms = parse_plot_string(ss)
+        plots += [(folder, name, histograms)]
  
     return samples, plots
 
-samples, plots = parse_args()
-
-def getall(d, basepath="/"):
-    "Generator function to recurse into a ROOT file/dir and yield (path, obj) pairs"
-    for key in d.GetListOfKeys():
-        kname = key.GetName()
-        if key.IsFolder():
-            for i in getall(d.Get(kname), basepath+kname+"/"):
-                yield i
-        else:
-            yield basepath+kname, d.Get(kname).ClassName()
-
-if len(plots) == 0:
-    for samp in samples:
-        for fn, label in samp._fileLegends:
-            print fn
-            tf = ROOT.TFile(fn)
-            tf.ReadAll()
-            for name, objtype in getall(tf):
-                if objtype.startswith("TH1"):
-                    print name
-
- 
-def addPlots(plotter, folder, name, section, bin_range):
+def addPlots(plotter, folder, name, section, histograms):
     folders = [folder]
-    plots = [PlotGroup(name, [Plot("Bin{0}".format(ibin)) for ibin in bin_range])]
+    plots = [PlotGroup(name, [Plot(h) for h in histograms])]
     plotter.append("ParticleFlow", folders, PlotFolder(*plots, loopSubFolders=False, page="pf", section=section))
 
-plotter = Plotter()
 
-addPlots(plotter, "DQMData/Run 1/Physics/Run summary/JetResponse/ByGenJetPt", "ByGenJetPt1", "JetResponse", range(0,6))
-addPlots(plotter, "DQMData/Run 1/Physics/Run summary/JetResponse/ByGenJetPt", "ByGenJetPt2", "JetResponse", range(6,12))
+def main():
+    samples, plots = parse_args()
 
-addPlots(plotter, "DQMData/Run 1/Physics/Run summary/JetResponse/ByGenJetEta", "ByGenJetEta1", "JetResponse", range(0,6))
-addPlots(plotter, "DQMData/Run 1/Physics/Run summary/JetResponse/ByGenJetEta", "ByGenJetEta2", "JetResponse", range(6,12))
-addPlots(plotter, "DQMData/Run 1/Physics/Run summary/JetResponse/ByGenJetEta", "ByGenJetEta3", "JetResponse", range(12,13))
+    plotter = Plotter()
 
-val = SimpleValidation(samples, outputDir)
-report = val.createHtmlReport(validationName=description)
-val.doPlots([plotter],
-    plotterDrawArgs=plotterDrawArgs,
-)
-report.write()
+    for folder, name, histograms in plots:
+        fullfolder =  "DQMData/Run 1/Physics/Run summary/{0}".format(folder)
+        print "Booking histogram group {0}={1} from folder {2}".format(name, histograms, folder)
+        addPlots(plotter, fullfolder, name, folder, histograms)
+
+    outputDir = "plots" # Plot output directory
+    description = "Simple ParticleFlow comparison"
+
+    plotterDrawArgs = dict(
+        separate=False, # Set to true if you want each plot in it's own canvas
+    #    ratio=False,   # Uncomment to disable ratio pad
+    )
+
+    val = SimpleValidation(samples, outputDir)
+    report = val.createHtmlReport(validationName=description)
+    val.doPlots([plotter], plotterDrawArgs=plotterDrawArgs)
+    report.write()
+
+if __name__ == "__main__":
+    main()
