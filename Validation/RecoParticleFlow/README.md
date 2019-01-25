@@ -23,6 +23,12 @@ $CMSSW_BASE/src/Validation/RecoParticleFlow/test/run_relval.sh QCD reco 0
 
 #DQM step, a few minutes
 $CMSSW_BASE/src/Validation/RecoParticleFlow/test/run_relval.sh QCD dqm 0
+
+#Make example plots
+cd QCD
+python $CMSSW_BASE/src/Validation/RecoParticleFlow/test/compare.py
+ls plots
+
 ~~~
 
 
