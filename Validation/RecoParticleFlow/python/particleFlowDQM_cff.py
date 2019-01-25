@@ -45,7 +45,7 @@ pfDQM = cms.EDAnalyzer("ParticleFlowDQM",
     #match these reco-jets to the gen-jets and compute jet response
     recoJetCollection = cms.InputTag('ak4PFJets'),
     genJetCollection = cms.InputTag('ak4GenJets'),
-    jetDeltaR = cms.double(0.5),
+    jetDeltaR = cms.double(0.25),
 
     responsePlots = cms.VPSet(createResponsePlots())
 

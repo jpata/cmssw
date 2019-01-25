@@ -146,13 +146,13 @@ void ParticleFlowDQM::fillJetResponse(
 
         const auto& genJet = genJetCollection.at(i);
         int iMatch = matchIndices[i];
-
-        //If reco jet had a matched gen-jet
+        
+        //If gen jet had a matched reco jet
         if (iMatch != -1) {
             const auto& recoJet = recoJetCollection[iMatch];
             const auto pt_reco = recoJet.pt();
             const auto pt_gen = genJet.pt();
-            const auto eta_gen = abs(recoJet.eta());
+            const auto eta_gen = abs(genJet.eta());
             const auto response = pt_reco / pt_gen;
 
             //Loop linearly through all plots and check if they match the pt and eta bin
