@@ -109,7 +109,7 @@ elif [ $STEP == "DQM" ]; then
     cd $NAME
     
     #get all the filenames and make them into a python-compatible list of strings
-    STEP3FNS=`ls -1 step3.*.*.root | sed 's/^/"file:/;s/$/",/' | tr '\n' ' '`
+    STEP3FNS=`ls -1 step3*.root | sed 's/^/"file:/;s/$/",/' | tr '\n' ' '`
     echo "step3 filenames for DQM: "$STEP3FNS
 
     #Run the DQM sequences (PF DQM only)
