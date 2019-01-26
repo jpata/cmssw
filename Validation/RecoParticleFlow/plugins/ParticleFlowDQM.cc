@@ -5,6 +5,7 @@
 #include "DQMServices/Core/interface/MonitorElement.h"
 #include "DataFormats/JetReco/interface/Jet.h"
 #include "DataFormats/JetReco/interface/PFJet.h"
+#include "DataFormats/Candidate/interface/CandMatchMap.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -90,6 +91,7 @@ private:
     edm::InputTag genJetsLabel;
     edm::EDGetTokenT<edm::View<reco::Jet>> recoJetsToken;
     edm::EDGetTokenT<edm::View<reco::Jet>> genJetsToken;
+    edm::EDGetTokenT<reco::CandViewMatchMap> srcRefToJetMap;
 
     void fillJetResponse(edm::View<reco::Jet>& recoJetCollection, edm::View<reco::Jet>& genJetCollection);
 };
@@ -131,6 +133,7 @@ ParticleFlowDQM::ParticleFlowDQM(const edm::ParameterSet& iConfig)
 
     recoJetsToken = consumes<edm::View<reco::Jet>>(recoJetsLabel);
     genJetsToken = consumes<edm::View<reco::Jet>>(genJetsLabel);
+
 }
 
 void ParticleFlowDQM::fillJetResponse(
@@ -138,7 +141,7 @@ void ParticleFlowDQM::fillJetResponse(
     edm::View<reco::Jet>& genJetCollection)
 {
 
-    //match gen jets to reco jets by DeltaR
+    //match gen jets to reco jets, require minimum jetDeltaR, choose closest, do not try to match charge
     std::vector<int> matchIndices;
     PFB::match(genJetCollection, recoJetCollection, matchIndices, false, jetDeltaR);
 
@@ -183,7 +186,7 @@ void ParticleFlowDQM::analyze(const edm::Event& iEvent, const edm::EventSetup&)
 
     edm::Handle<edm::View<reco::Jet>> genJetCollectionHandle;
     iEvent.getByToken(genJetsToken, genJetCollectionHandle);
-
+    
     auto recoJetCollection = *recoJetCollectionHandle;
     auto genJetCollection = *genJetCollectionHandle;
 
