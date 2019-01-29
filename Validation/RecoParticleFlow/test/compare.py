@@ -12,6 +12,8 @@ from Validation.RecoTrack.plotting.validation import SimpleValidation, SimpleSam
 from Validation.RecoTrack.plotting.plotting import Subtract, FakeDuplicate, CutEfficiency, Transform, AggregateBins, ROC, Plot, PlotEmpty, PlotGroup, PlotOnSideGroup, PlotFolder, Plotter
 from Validation.RecoTrack.plotting.html import PlotPurpose
 
+from Validation.RecoParticleFlow.defaults_cfi import ptbins, etabins, response_distribution_name
+
 def parse_sample_string(ss):
     spl = ss.split(":")
     if not (len(spl) >= 3):
@@ -47,19 +49,25 @@ def parse_plot_string(ss):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--sample", type=str, action='append',
-        required=False,
+        required=True,
         help="DQM files to compare for a single sample, in the format 'name:file1.root:file2.root:...:fileN.root'",
-        default=[
-            "QCD:DQM_V0001_R000000001__Global__CMSSW_X_Y_Z__RECO.root:DQM_V0001_R000000001__Global__CMSSW_X_Y_Z__RECO.root"
-        ]
+        #default=[
+        #    "QCD:DQM_V0001_R000000001__Global__CMSSW_X_Y_Z__RECO.root:DQM_V0001_R000000001__Global__CMSSW_X_Y_Z__RECO.root"
+        #]
     )
     parser.add_argument("-p", "--plots",
         type=str, action='append',
         required=False,
         help="Plots to put on a single canvas, in the format 'folder:name:plot1:plot2:...:plotN'",
-        default=[
-            "JetResponse:reso_dist_10_24:reso_dist_10_24_eta05:reso_dist_10_24_eta13"
-        ]
+        default = [],
+        #default=[
+        #    "JetResponse:reso_dist_10_24:reso_dist_10_24_eta05:reso_dist_10_24_eta13"
+        #]
+    )
+    parser.add_argument("--doResponsePlots",
+        action='store_true',
+        required=False,
+        help="If enabled, do all jet response plots"
     )
     args = parser.parse_args()
 
@@ -76,24 +84,37 @@ def parse_args():
     for ss in args.plots:
         folder, name, histograms = parse_plot_string(ss)
         plots += [(folder, name, histograms)]
- 
+    
+    if args.doResponsePlots:
+        plots += [("JetResponse", "reso_pt", ["preso_eta05", "preso_eta13","preso_eta21","preso_eta25","preso_eta30"])]
+        for iptbin in range(len(ptbins)-1):
+            pthistograms = []
+            for ietabin in range(len(etabins)-1):
+                pthistograms += [response_distribution_name(iptbin, ietabin)]
+            plots += [("JetResponse", "response_{0:.0f}_{1:.0f}".format(ptbins[iptbin], ptbins[iptbin+1]), pthistograms)]
+
     return samples, plots
 
-def addPlots(plotter, folder, name, section, histograms):
+def addPlots(plotter, folder, name, section, histograms, opts):
     folders = [folder]
-    plots = [PlotGroup(name, [Plot(h) for h in histograms])]
+    plots = [PlotGroup(name, [Plot(h, **opts) for h in histograms])]
     plotter.append("ParticleFlow", folders, PlotFolder(*plots, loopSubFolders=False, page="pf", section=section))
 
 
 def main():
+    plot_opts = {
+        "reso_pt": {"xlog": True},
+    }
+
     samples, plots = parse_args()
 
     plotter = Plotter()
 
     for folder, name, histograms in plots:
+        opts = plot_opts.get(name, {})
         fullfolder =  "DQMData/Run 1/Physics/Run summary/{0}".format(folder)
         print "Booking histogram group {0}={1} from folder {2}".format(name, histograms, folder)
-        addPlots(plotter, fullfolder, name, folder, histograms)
+        addPlots(plotter, fullfolder, name, folder, histograms, opts)
 
     outputDir = "plots" # Plot output directory
     description = "Simple ParticleFlow comparison"

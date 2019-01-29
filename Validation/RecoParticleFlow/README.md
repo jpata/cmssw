@@ -16,19 +16,18 @@ cd $CMSSW_BASE/src/Validation/RecoParticleFlow
 
 #make a temporary directory for the output
 mkdir tmp
-cd tmp
 
 #RECO step, about 30 minutes
-$CMSSW_BASE/src/Validation/RecoParticleFlow/test/run_relval.sh QCD reco 0
+make QCD_reco
 
 #DQM step, a few minutes
-$CMSSW_BASE/src/Validation/RecoParticleFlow/test/run_relval.sh QCD dqm 0
+make QCD_dqm
 
-#Make example plots
-cd QCD
-python $CMSSW_BASE/src/Validation/RecoParticleFlow/test/compare.py
-ls plots
+#Do postprocessing on the DQM histograms
+make QCD_post
 
+#Do final HTML plots
+make plots
 ~~~
 
 
@@ -47,6 +46,7 @@ condor_submit $CMSSW_BASE/src/Validation/RecoParticleFlow/test/condor_sub.jdl
 #remove dummy output files from jobs that failed
 du *.root | grep "^0" | awk '{print $2}' | xargs rm
 
-cd ..
-$CMSSW_BASE/src/Validation/RecoParticleFlow/test/run_relval.sh QCD dqm 0
+cd ${CMSSW_BASE}/src/Validation/RecoParticleFlow
+
+make QCD_dqm QCD_post plots
 ~~~
