@@ -113,7 +113,7 @@ class Dataset:
         with open(self.get_das_cache_filename(), "w") as fi:
             for line in ret.split("\n"):
                 if line.endswith(".root"):
-                    fi.write(line + "\n")
+                    fi.write(self.global_file_prefix + line + "\n")
                     nfiles += 1
         
         LOG_MODULE_NAME.info("retrieved {0} files from DAS".format(nfiles))

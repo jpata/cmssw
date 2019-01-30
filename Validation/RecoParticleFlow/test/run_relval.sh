@@ -23,7 +23,7 @@ NTHREADS=1
 
 #Argument parsing
 if [ "$#" -ne 3 ]; then
-    echo "Must pass exactly 3 arguments: run_relval.sh [TTbar|QCD|ZMM] [reco|dqm] [njob]"
+    echo "Must pass exactly 3 arguments: run_relval.sh [QCD|QCDPU] [reco|dqm] [njob]"
     exit 0
 fi
 
@@ -46,21 +46,14 @@ else
 fi
 
 ##RelVal samples
-if [ "$1" == "TTbar" ]; then
-    INPUT_FILE=root://cms-xrd-global.cern.ch///store/relval/CMSSW_9_4_11_cand2/RelValTTbar_13/GEN-SIM-DIGI-RAW/94X_mc2017_realistic_v15-v1/10000/FA0F368D-D4D2-E811-A159-0025905B8600.root
-    NAME=TTbar
-    echo "TTbar sample needs to be implemented"
-    exit 1
-elif [ "$1" == "QCD" ]; then
-    INPUT_FILELIST=${CMSSW_BASE}/src/Validation/RecoParticleFlow/test/filelist_QCD.txt
+if [ "$1" == "QCD" ]; then
+    INPUT_FILELIST=${CMSSW_BASE}/src/Validation/RecoParticleFlow/tmp/das_cache/QCD_FlatPt_noPU/RelValQCD_FlatPt_15_3000HS_13__CMSSW_9_4_11_cand2-94X_mc2017_realistic_v15-v1__GEN-SIM-DIGI-RAW.txt
     NAME=QCD
-elif [ "$1" == "ZMM" ]; then
-    INPUT_FILE=root://cms-xrd-global.cern.ch///store/relval/CMSSW_9_4_11_cand2/RelValZMM_13/GEN-SIM-DIGI-RAW/PU25ns_94X_mc2017_realistic_v15-v1/10000/E81E507D-5DD4-E811-9512-0025905A497A.root 
-    NAME=ZMM
-    echo "ZMM sample needs to be implemented"
-    exit 1
+elif [ "$1" == "QCDPU" ]; then
+    INPUT_FILELIST=${CMSSW_BASE}/src/Validation/RecoParticleFlow/tmp/das_cache/QCD_FlatPt_PU25ns/RelValQCD_FlatPt_15_3000HS_13__CMSSW_9_4_11_cand2-PU25ns_94X_mc2017_realistic_v15-v1__GEN-SIM-DIGI-RAW.txt
+    NAME=QCDPU
 else
-    echo "Argument 1 must be [TTbar|QCD|ZMM] but was $1"
+    echo "Argument 1 must be [QCD|QCDPU] but was $1"
     exit 1
 fi
 
