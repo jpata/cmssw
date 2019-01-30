@@ -97,7 +97,7 @@ if [ $STEP == "RECO" ]; then
     #Run the actual CMS reco with particle flow.
     #On lxplus, this step takes about 15 minutes / 1000 events
     echo "Running step RECO" 
-    cmsDriver.py step3  --customise_commands="process.source.skipEvents=cms.untracked.uint32($SKIPEVENTS)" --runUnscheduled  --conditions $CONDITIONS -s RAW2DIGI,L1Reco,RECO,RECOSIM,EI,PAT --datatier RECOSIM --nThreads $NTHREADS -n $PERJOB --era $ERA --eventcontent RECOSIM --filein filelist:$INPUT_FILELIST --fileout file:step3.root | tee step3.log  2>&1
+    cmsDriver.py step3  --customise_commands="process.source.skipEvents=cms.untracked.uint32($SKIPEVENTS)" --runUnscheduled  --conditions $CONDITIONS -s RAW2DIGI,L1Reco,RECO,RECOSIM,EI,PAT --datatier RECOSIM,AODSIM,MINIAODSIM --nThreads $NTHREADS -n $PERJOB --era $ERA --eventcontent RECOSIM,AODSIM,MINIAODSIM --filein filelist:$INPUT_FILELIST --fileout file:step3.root | tee step3.log  2>&1
    
     #NanoAOD
     #On lxplus, this step takes about 1 minute / 1000 events
@@ -109,12 +109,13 @@ elif [ $STEP == "DQM" ]; then
     cd $NAME
     
     #get all the filenames and make them into a python-compatible list of strings
-    STEP3FNS=`ls -1 step3*.root | sed 's/^/"file:/;s/$/",/' | tr '\n' ' '`
+    #STEP3FNS=`ls -1 step3*MINIAODSIM*.root | sed 's/^/"file:/;s/$/",/' | tr '\n' ' '`
+    ls -1 step3*MINIAODSIM*.root | sed 's/^/file:/' > step3_filelist.txt
     echo "step3 filenames for DQM: "$STEP3FNS
 
     #Run the DQM sequences (PF DQM only)
     #override the filenames here as cmsDriver does not allow multiple input files and there is no easy way to merge EDM files
-    cmsDriver.py step5 --customise_commands="process.source.fileNames=cms.untracked.vstring($STEP3FNS)" --conditions $CONDITIONS -s DQM:@pfDQM --datatier DQMIO --nThreads $NTHREADS --era $ERA --eventcontent DQM --filein DUMMY --fileout file:step5.root -n -1 | tee step5.log 2>&1
+    cmsDriver.py step5 --conditions $CONDITIONS -s DQM:@pfDQM --datatier DQMIO --nThreads $NTHREADS --era $ERA --eventcontent DQM --filein filelist:step3_filelist.txt --fileout file:step5.root -n -1 | tee step5.log 2>&1
 
     #Harvesting converts the histograms stored in TTrees to be stored in folders by run etc
     cmsDriver.py step6 --conditions $CONDITIONS -s HARVESTING:@pfDQM --era $ERA --filetype DQM --filein file:step5.root --fileout file:step6.root | tee step6.log 2>&1
