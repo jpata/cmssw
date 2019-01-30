@@ -2400,3 +2400,6 @@ steps['RecoFull_trackingOnlyRun2_2017'] = merge([{'--era': 'Run2_2017_trackingRu
 steps['RecoFull_trackingPhase1QuadProp_2017'] = merge([{'--era': 'Run2_2017_trackingPhase1QuadProp'}, steps['RecoFull_2017']])
 steps['RecoFull_trackingOnlyPhase1QuadProp_2017'] = merge([{'--era': 'Run2_2017_trackingPhase1QuadProp'}, steps['RecoFull_trackingOnly_2017']])
 steps['RecoFull_trackingLowPU_2017'] = merge([{'--era': 'Run2_2017_trackingLowPU'}, steps['RecoFull_2017']])
+
+
+steps['QCD_FlatPt_15_3000HS_13INPUT_DIGIRAW']={'INPUT':InputInfo(dataSet='/RelValQCD_FlatPt_15_3000HS_13/%s/GEN-SIM-DIGI-RAW'%(baseDataSetRelease[14],),location='STD')}

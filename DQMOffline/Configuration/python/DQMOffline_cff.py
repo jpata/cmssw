@@ -72,7 +72,24 @@ DQMOfflinePOG = cms.Sequence( DQMOfflinePrePOG *
 
 HLTMonitoring = cms.Sequence( OfflineHLTMonitoring )
 HLTMonitoringPA = cms.Sequence( OfflineHLTMonitoringPA )
-DQMOffline = cms.Sequence( DQMOfflinePreDPG *
+
+from Validation.RecoParticleFlow.particleFlowDQM_cff import pfDQMAnalyzer
+from Validation.RecoParticleFlow.PFJetValidation_cff import pfJetValidation1, pfJetValidation2 
+from Validation.RecoParticleFlow.PFJetResValidation_cff import pfJetResValidation1
+from Validation.RecoParticleFlow.PFMETValidation_cff import pfMETValidation1, pfMETValidation2
+from Validation.RecoParticleFlow.PFElectronValidation_cff import pfElectronValidation1
+DQMOfflinePF = cms.Sequence(
+  pfDQMAnalyzer +
+  pfJetValidation1 +
+  pfJetValidation2 +
+  pfJetResValidation1 +
+  pfMETValidation1 +
+  pfMETValidation2 +
+  pfElectronValidation1
+)
+
+DQMOffline = cms.Sequence( DQMOfflinePF*
+                           DQMOfflinePreDPG *
                            DQMOfflinePrePOG *
                            HLTMonitoring *
                            # dqmFastTimerServiceLuminosity *
@@ -181,7 +198,6 @@ from Configuration.Eras.Modifier_phase2_hcal_cff import phase2_hcal
 phase2_hcal.toReplaceWith( PostDQMOfflineMiniAOD, PostDQMOfflineMiniAOD.copyAndExclude([
     pfMetDQMAnalyzerMiniAOD, pfPuppiMetDQMAnalyzerMiniAOD # No hcalnoise yet
 ]))
-
 
 from PhysicsTools.NanoAOD.nanoDQM_cff import nanoDQM
 DQMOfflineNanoAOD = cms.Sequence(nanoDQM)
