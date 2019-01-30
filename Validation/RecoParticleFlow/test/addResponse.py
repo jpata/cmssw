@@ -18,7 +18,7 @@
 import ROOT as r
 import sys
 import array as ar
-
+import math
 
 def make_subdirs(tfile, path):
    d = tfile
@@ -59,6 +59,9 @@ def pf_resolution(sforig, treepath):
       preso = r.TProfile("preso_%s" % apdx,
           "Jet pT resolution, eta=[{0}, {1}]".format(etabins[etaidx][0], etabins[etaidx][1]),nptbins,ptbins
       )
+      response_pt = r.TProfile("presponse_%s" % apdx,
+          "Jet pT response, eta=[{0}, {1}]".format(etabins[etaidx][0], etabins[etaidx][1]),nptbins,ptbins
+      )
       
 
       for idx in range(nptbins):
@@ -75,8 +78,16 @@ def pf_resolution(sforig, treepath):
          if (h.GetMean()>0):
             mean = h.GetMean()
 
+         #fill the pt-dependent resolution plot
          preso.Fill(elow,std/mean)
          preso.SetBinError(idx,err)
+        
+         #fill the pt-dependent response plot with the mean of the response.
+         #We quote the standard error of the mean (stddev / sqrt(n))
+         response_pt.Fill(elow, mean)
+         #if h.GetEntries() > 0:
+         #    #currently override errors, as we will be comparing the same events, so MC stats will be fully correlated
+         #    response_pt.SetBinError(idx, 0.0 * std/math.sqrt(h.GetEntries()))
          
       fout.Write()
    fout.Close()   
