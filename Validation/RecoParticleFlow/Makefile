@@ -1,4 +1,4 @@
-TMPDIR=tmp
+TMPDIR=tmp2
 RELVALCMD=${CMSSW_BASE}/src/Validation/RecoParticleFlow/test/run_relval.sh
 
 QCD: QCD_reco QCD_dqm
