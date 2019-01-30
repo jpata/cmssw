@@ -108,6 +108,7 @@ def main():
     plot_opts = {
         "reso_pt": {"xlog": True},
         "response_pt": {"xlog": True},
+        "response_10_24": {"stat": True}
     }
 
     samples, plots = parse_args()
