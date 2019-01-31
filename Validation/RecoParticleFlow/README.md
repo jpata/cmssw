@@ -4,13 +4,13 @@
 Run locally on lxplus
 ~~~
 #set up the work area
-export SCRAM_ARCH=slc6_amd64_gcc630
-cmsrel CMSSW_9_4_11
-cd CMSSW_9_4_11
+export SCRAM_ARCH=slc6_amd64_gcc700
+cmsrel CMSSW_10_4_0
+cd CMSSW_10_4_0
 cmsenv
 
 #get the code
-git cms-merge-topic jpata:pfvalidation
+git cms-merge-topic jpata:pfvalidation-10_4_X
 scram b -j4
 cd $CMSSW_BASE/src/Validation/RecoParticleFlow
 
