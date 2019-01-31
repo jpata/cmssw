@@ -12,7 +12,8 @@ Environment = "CMSSW_BASE=$ENV(CMSSW_BASE) PERJOB=100"
 #Requirements=(TARGET.OpSysAndVer=="CentOS7")
 RequestMemory = 3000
 RequestCpus = 1
-+MaxRuntime = 10000
+#6h runtume
++MaxRuntime = 21600
 
 #choose job environment using singularity
 +RunAsOwner = True
