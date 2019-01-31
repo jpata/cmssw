@@ -122,11 +122,12 @@ class Dataset:
 
 if __name__ == "__main__":
 
-    xrootd_fnal = "root://cmsxrootd.fnal.gov//"
+    #xrootd = "root://cmsxrootd.fnal.gov//"
+    xrootd = "root://xrootd-cms.infn.it//"
     tmpdir = "tmp"
     datasets = [
-        Dataset("/RelValQCD_FlatPt_15_3000HS_13/CMSSW_9_4_11_cand2-94X_mc2017_realistic_v15-v1/GEN-SIM-DIGI-RAW", "QCD_FlatPt_noPU", xrootd_fnal, None, False, tmpdir),
-        Dataset("/RelValQCD_FlatPt_15_3000HS_13/CMSSW_9_4_11_cand2-PU25ns_94X_mc2017_realistic_v15-v1/GEN-SIM-DIGI-RAW", "QCD_FlatPt_PU25ns", xrootd_fnal, None, False, tmpdir)
+        Dataset("/RelValQCD_FlatPt_15_3000HS_13/CMSSW_10_4_0_pre4-103X_mc2017_realistic_v2-v1/GEN-SIM-DIGI-RAW", "QCD_FlatPt_noPU", xrootd, None, False, tmpdir),
+        Dataset("/RelValQCD_FlatPt_15_3000HS_13/CMSSW_10_4_0_pre4-PU25ns_103X_mc2017_realistic_v2-v1/GEN-SIM-DIGI-RAW", "QCD_FlatPt_PU25ns", xrootd, None, False, tmpdir)
     ]
     
     for ds in datasets:

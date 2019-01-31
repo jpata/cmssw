@@ -47,7 +47,7 @@ fi
 
 ##RelVal samples
 if [ "$1" == "QCD" ]; then
-    INPUT_FILELIST=${CMSSW_BASE}/src/Validation/RecoParticleFlow/tmp/das_cache/QCD_FlatPt_noPU/RelValQCD_FlatPt_15_3000HS_13__CMSSW_9_4_11_cand2-94X_mc2017_realistic_v15-v1__GEN-SIM-DIGI-RAW.txt
+    INPUT_FILELIST=${CMSSW_BASE}/src/Validation/RecoParticleFlow/tmp/das_cache/QCD_FlatPt_noPU/RelValQCD_FlatPt_15_3000HS_13__CMSSW_10_4_0_pre4-103X_mc2017_realistic_v2-v1__GEN-SIM-DIGI-RAW.txt
     NAME=QCD
 elif [ "$1" == "QCDPU" ]; then
     INPUT_FILELIST=${CMSSW_BASE}/src/Validation/RecoParticleFlow/tmp/das_cache/QCD_FlatPt_PU25ns/RelValQCD_FlatPt_15_3000HS_13__CMSSW_9_4_11_cand2-PU25ns_94X_mc2017_realistic_v15-v1__GEN-SIM-DIGI-RAW.txt
