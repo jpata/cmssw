@@ -23,7 +23,7 @@ RequestCpus = 1
 +SingularityBindCVMFS = True
 run_as_owner = True
 
-x509userproxy = /data/jpata/x509
+x509userproxy = $ENV(X509_USER_PROXY)
 
 #transfer section
 transfer_output_files = MinBias/step3.log,MinBias/step3_inMINIAODSIM.root
