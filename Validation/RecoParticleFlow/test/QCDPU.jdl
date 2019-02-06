@@ -9,9 +9,8 @@ Output = log/test.out.$(Cluster).$(Process)
 Error = log/test.err.$(Cluster).$(Process)
 Environment = "CMSSW_BASE=$ENV(CMSSW_BASE) PERJOB=500"
 
-Requirements=(regexp("blade.*", TARGET.Machine))
 RequestMemory = 3000
-RequestCpus = 2
+RequestCpus = 1
 #6h runtume
 +MaxRuntime = 21600
 
@@ -23,10 +22,12 @@ RequestCpus = 2
 +SingularityBindCVMFS = True
 run_as_owner = True
 
+x509userproxy = $ENV(X509_USER_PROXY)
+
 #transfer section
 transfer_output_files = QCDPU/step3.log,QCDPU/step3_inMINIAODSIM.root
 transfer_output_remaps = "step3.log=step3.$(Cluster).$(Process).log;step3_inMINIAODSIM.root=step3_inMINIAODSIM.$(Cluster).$(Process).root"
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 
-Queue 100
+Queue 50

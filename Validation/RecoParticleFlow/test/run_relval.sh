@@ -30,7 +30,7 @@ if [ "$#" -ne 3 ]; then
 fi
 
 #index of the job is used to keep track of which events / files to process in the reco step
-NJOB=$3
+NJOB=$(($3 + 1))
 
 #set CMSSW environment and go to condor work dir
 LAUNCHDIR=`pwd`
@@ -94,11 +94,11 @@ if [ $STEP == "RECO" ]; then
     mkdir $NAME
     cd $NAME
 
-
+    FILENAME=`sed -n "${NJOB}p" $INPUT_FILELIST`
+    echo "FILENAME="$FILENAME
     #Run the actual CMS reco with particle flow.
-    #On lxplus, this step takes about 15 minutes / 1000 events
     echo "Running step RECO" 
-    cmsDriver.py step3  --customise_commands="process.source.skipEvents=cms.untracked.uint32($SKIPEVENTS)" --runUnscheduled  --conditions $CONDITIONS -s RAW2DIGI,L1Reco,RECO,RECOSIM,EI,PAT --datatier RECOSIM,AODSIM,MINIAODSIM --nThreads $NTHREADS -n $PERJOB --era $ERA --eventcontent RECOSIM,AODSIM,MINIAODSIM --filein filelist:$INPUT_FILELIST --fileout file:step3.root | tee step3.log  2>&1
+    cmsDriver.py step3 --runUnscheduled  --conditions $CONDITIONS -s RAW2DIGI,L1Reco,RECO,RECOSIM,EI,PAT --datatier RECOSIM,AODSIM,MINIAODSIM --nThreads $NTHREADS -n -1 --era $ERA --eventcontent RECOSIM,AODSIM,MINIAODSIM --filein file:$FILENAME --fileout file:step3.root | tee step3.log  2>&1
    
     #NanoAOD
     #On lxplus, this step takes about 1 minute / 1000 events

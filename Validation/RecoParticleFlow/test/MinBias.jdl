@@ -31,4 +31,4 @@ transfer_output_remaps = "step3.log=step3.$(Cluster).$(Process).log;step3_inMINI
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 
-Queue 100
+Queue 14

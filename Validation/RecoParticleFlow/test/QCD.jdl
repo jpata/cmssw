@@ -23,10 +23,12 @@ RequestCpus = 1
 +SingularityBindCVMFS = True
 run_as_owner = True
 
+x509userproxy = $ENV(X509_USER_PROXY)
+
 #transfer section
 transfer_output_files = QCD/step3.log,QCD/step3_inMINIAODSIM.root
 transfer_output_remaps = "step3.log=step3.$(Cluster).$(Process).log;step3_inMINIAODSIM.root=step3_inMINIAODSIM.$(Cluster).$(Process).root"
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 
-Queue 100
+Queue 25
