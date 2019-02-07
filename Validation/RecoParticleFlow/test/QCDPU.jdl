@@ -18,7 +18,7 @@ RequestCpus = 1
 +RunAsOwner = True
 +SleepSlot = True
 +InteractiveUser = true
-+SingularityImage = "/cvmfs/singularity.opensciencegrid.org/bbockelm/cms:rhel7"
++SingularityImage = "/cvmfs/singularity.opensciencegrid.org/bbockelm/cms:rhel6"
 +SingularityBindCVMFS = True
 run_as_owner = True
 

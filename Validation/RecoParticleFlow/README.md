@@ -36,16 +36,12 @@ make plots
 The reco sequence takes about 1-2 hours / 100 events on batch. We have prepared condor scripts to facilitate this on lxbatch. 
 ~~~
 cd $CMSSW_BASE/src/Validation/RecoParticleFlow
-mkdir -p tmp2/QCD/log
-cd tmp2/QCD
+mkdir -p tmp/QCD/log
+cd tmp/QCD
 
-condor_submit $CMSSW_BASE/src/Validation/RecoParticleFlow/test/condor_sub.jdl
+condor_submit $CMSSW_BASE/src/Validation/RecoParticleFlow/test/QCD.jdl
 
-#wait for jobs to finish, monitor using `condor_q`
-
-#remove dummy output files from jobs that failed
-du *.root | grep "^0" | awk '{print $2}' | xargs rm
-
+#do the DQM, postprocessing and plotting steps
 cd ${CMSSW_BASE}/src/Validation/RecoParticleFlow
 
 make QCD_dqm QCD_post plots
