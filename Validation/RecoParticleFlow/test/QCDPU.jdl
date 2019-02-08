@@ -7,18 +7,18 @@ Arguments = "QCDPU reco $(Process)"
 Log = log/test.$(Cluster).log
 Output = log/test.out.$(Cluster).$(Process)
 Error = log/test.err.$(Cluster).$(Process)
-Environment = "CMSSW_BASE=$ENV(CMSSW_BASE) PERJOB=500"
+Environment = "CMSSW_BASE=$ENV(CMSSW_BASE)"
 
 RequestMemory = 3000
 RequestCpus = 1
 #6h runtume
-+MaxRuntime = 21600
++MaxRuntime = 12*3600
 
 #choose job environment using singularity
 +RunAsOwner = True
 +SleepSlot = True
 +InteractiveUser = true
-+SingularityImage = "/cvmfs/singularity.opensciencegrid.org/bbockelm/cms:rhel7"
++SingularityImage = "/cvmfs/singularity.opensciencegrid.org/bbockelm/cms:rhel6"
 +SingularityBindCVMFS = True
 run_as_owner = True
 
