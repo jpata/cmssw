@@ -17,6 +17,9 @@ cd $CMSSW_BASE/src/Validation/RecoParticleFlow
 #make a temporary directory for the output
 mkdir tmp
 
+# Activate reading files from different sites
+voms-proxy-init -voms cms
+
 #RECO step, about 30 minutes
 make QCD_reco
 
