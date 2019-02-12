@@ -12,7 +12,7 @@ Environment = "CMSSW_BASE=$ENV(CMSSW_BASE)"
 RequestMemory = 3000
 RequestCpus = 1
 #6h runtume
-+MaxRuntime = 12*3600
++MaxRuntime = 24*3600
 
 #choose job environment using singularity
 +RunAsOwner = True
