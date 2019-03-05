@@ -10,12 +10,12 @@ cd CMSSW_10_5_0_pre1
 cmsenv
 
 #get the code
-git cms-merge-topic jpata:pfvalidation-10_5_0_pre1-master
+git cms-checkout-topic jpata:pfvalidation-10_5_0_pre1-master
 scram b -j4
 cd $CMSSW_BASE/src/Validation/RecoParticleFlow
 
-#make a temporary directory for the output
-mkdir tmp
+# Activate reading files from remote locations (needed at lxplus at least)
+voms-proxy-init -voms cms
 
 #RECO step, about 30 minutes
 make QCD_reco
@@ -46,3 +46,13 @@ cd ${CMSSW_BASE}/src/Validation/RecoParticleFlow
 
 make QCD_dqm QCD_post plots
 ~~~
+
+# Running via crab
+
+The reco step can also be run via Crab, using
+~~~
+cd crab
+python multicrab.py
+~~~
+
+Take note that the CMSSW python configuration for running the RECO sequence is dumped into `crab/step3_dump.py`.
