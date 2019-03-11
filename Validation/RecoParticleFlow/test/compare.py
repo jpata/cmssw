@@ -12,7 +12,7 @@ from Validation.RecoTrack.plotting.validation import SimpleValidation, SimpleSam
 from Validation.RecoTrack.plotting.plotting import Subtract, FakeDuplicate, CutEfficiency, Transform, AggregateBins, ROC, Plot, PlotEmpty, PlotGroup, PlotOnSideGroup, PlotFolder, Plotter
 from Validation.RecoTrack.plotting.html import PlotPurpose
 
-from Validation.RecoParticleFlow.defaults_cfi import ptbins, etabins, response_distribution_name
+from Validation.RecoParticleFlow.defaults_cfi import ptbins, etabins, response_distribution_name, muLowOffset, muHighOffset, npvLowOffset, npvHighOffset, candidateType, offset_name
 
 def parse_sample_string(ss):
     spl = ss.split(":")
@@ -69,6 +69,16 @@ def parse_args():
         required=False,
         help="If enabled, do all jet response plots"
     )
+    parser.add_argument("--doOffsetPlots",
+        action='store_true',
+        required=False,
+        help="If enabled, do all offset plots"
+    )
+    parser.add_argument("--offsetOpts", type=str, action='append',
+        required=False,
+        help="Options for offset plots: variable and deltaR",
+        default="npv 0.4"
+    )
     args = parser.parse_args()
 
     #collect all the SimpleSample objects    
@@ -94,12 +104,27 @@ def parse_args():
                 pthistograms += [response_distribution_name(iptbin, ietabin)]
             plots += [("JetResponse", "response_{0:.0f}_{1:.0f}".format(ptbins[iptbin], ptbins[iptbin+1]), pthistograms)]
 
-    return samples, plots
+    if args.doOffsetPlots:
+        var = "npv"
+        varHigh, varLow = npvHighOffset, npvLowOffset
+        if var not in args.offsetOpts :
+            var = "mu"
+            varHigh, varLow = muHighOffset, muLowOffset
+        for ivar in range( varLow, varHigh ) :
+            offsetHists = []
+            for itype in candidateType :
+                offsetHists += [ offset_name( var, ivar, itype ) ]
+            plots += [("Offset/{0}Plots/{0}{1}".format(var, ivar), "{0}{1}".format(var, ivar), offsetHists)]
 
-def addPlots(plotter, folder, name, section, histograms, opts):
+    return samples, plots, args.doOffsetPlots, args.offsetOpts
+
+def addPlots(plotter, folder, name, section, histograms, opts, offset=False):
     folders = [folder]
     plots = [PlotGroup(name, [Plot(h, **opts) for h in histograms])]
-    plotter.append("ParticleFlow", folders, PlotFolder(*plots, loopSubFolders=False, page="pf", section=section))
+    if offset :
+        plotter.append("Offset", folders, PlotFolder(*plots, loopSubFolders=False, page="offset", section=section))
+    else :
+        plotter.append("ParticleFlow", folders, PlotFolder(*plots, loopSubFolders=False, page="pf", section=section))
 
 
 def main():
@@ -112,7 +137,7 @@ def main():
     for iptbin in range(len(ptbins)-1):
         plot_opts["response_{0:.0f}_{1:.0f}".format(ptbins[iptbin], ptbins[iptbin+1])] = {"stat": True}
 
-    samples, plots = parse_args()
+    samples, plots, doOffsetPlots, offsetOpts = parse_args()
 
     plotter = Plotter()
 
@@ -120,7 +145,11 @@ def main():
         opts = plot_opts.get(name, {})
         fullfolder =  "DQMData/Run 1/Physics/Run summary/{0}".format(folder)
         print "Booking histogram group {0}={1} from folder {2}".format(name, histograms, folder)
-        addPlots(plotter, fullfolder, name, folder, histograms, opts)
+        if "Offset/" in folder :
+            opts = {'xtitle':'Default', 'ytitle':'Default'}
+            addPlots(plotter, fullfolder, name, folder, histograms, opts, True)
+        else :
+            addPlots(plotter, fullfolder, name, folder, histograms, opts)
 
     outputDir = "plots" # Plot output directory
     description = "Simple ParticleFlow comparison"
@@ -133,7 +162,48 @@ def main():
     val = SimpleValidation(samples, outputDir)
     report = val.createHtmlReport(validationName=description)
     val.doPlots([plotter], plotterDrawArgs=plotterDrawArgs)
+
     report.write()
+
+    #add tdr-style stack plots to offset html file
+    if doOffsetPlots :
+        offsetDir = "OffsetStacks"
+        fullOffsetDir = os.path.join( outputDir, offsetDir )
+        os.makedirs( fullOffsetDir )
+
+        for s in samples :
+            cmd = "offsetStack " + s.label() + ":" + s.files()[0] + " " + offsetOpts + " " + fullOffsetDir
+            print cmd
+            os.system(cmd)
+
+            offFile = open( outputDir + "/" + s.label() + "_offset.html", "r")
+            lines = offFile.readlines()
+            offFile.close()
+
+            stackLines = [
+                '   <td><a href="{0}/stack_{1}.pdf">stack_{1}.pdf</a></td>\n'.format(offsetDir, s.label()),
+                '  <br/>\n',
+                '  <br/>\n'
+            ]
+            lines[8:len(stackLines)] = stackLines
+
+            for s2 in samples :
+                if s == s2 : continue
+                cmd2 = cmd + " " + s2.label() + ":" + s2.files()[0]
+                print cmd2
+                os.system(cmd2)
+
+                stackLines = [
+                    '   <td><a href="{0}/stack_{1}_vs_{2}.pdf">stack_{1}_vs_{2}.pdf</a></td>\n'.format(offsetDir, s.label(), s2.label()),
+                    '  <br/>\n',
+                    '  <br/>\n'
+                ]
+                lines[8:len(stackLines)] = stackLines
+
+            offFile = open( outputDir + "/" + s.label() + "_offset.html", "w")
+            lines = "".join(lines)
+            offFile.write(lines)
+            offFile.close()
 
 if __name__ == "__main__":
     main()
