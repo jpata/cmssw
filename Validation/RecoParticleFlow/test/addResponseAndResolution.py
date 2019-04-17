@@ -61,9 +61,11 @@ def add_response_and_resolution(sforig, treepath):
    recoptcut = 15.
  
    
-   etabins = [[0,0.5],[0.5,1.3],[1.3,2.1],[2.1,2.5],[2.5,3.0]]
+   etabins = [
+      [0,0.5],[0.5,1.3],[1.3,2.1],[2.1,2.5],[2.5,3.0],[3.0,4.0],[4.0,5.0]]
    
-   etadict = {0.5:"eta05", 1.3:"eta13", 2.1:"eta21", 2.5:"eta25", 3.0:"eta30"}
+   etadict = {0.5:"eta05", 1.3:"eta13", 2.1:"eta21",2.5:"eta25", 3.0:"eta30",
+               4.0:"eta40",5.0:"eta50"}
    
    ptbins = ar.array('d',[10,24,32,43,56,74,97,133,174,245,300,362,430,
                   507,592,686,846,1032,1248,1588,2000,2500,3000,4000,6000])
@@ -102,11 +104,12 @@ def add_response_and_resolution(sforig, treepath):
          response, response_unc, resolution, resolution_unc = \
             help.fit_response(h,ngenjet,elow,recoptcut)
          
-         preso.SetBinContent(idx,resolution)
-         preso.SetBinError(idx,resolution_unc)
+         if (idx>0): ## skip the lowest pt bin for now, as the fit needs to be carefully validated
+            preso.SetBinContent(idx+1,resolution)
+            preso.SetBinError(idx+1,resolution_unc)
          
-         response_pt.SetBinContent(idx,response)
-         response_pt.SetBinError(idx,response_unc)
+            response_pt.SetBinContent(idx+1,response)
+            response_pt.SetBinError(idx+1,response_unc)
                   
       fout.Write()
    
@@ -143,15 +146,15 @@ def add_response_and_resolution(sforig, treepath):
              err = std/mean * math.sqrt(std_error**2 / std**2 + mean_error**2 / mean**2)
 
          #fill the pt-dependent resolution plot
-         preso_rms.SetBinContent(idx, std/mean)
-         preso_rms.SetBinError(idx, err)
+         preso_rms.SetBinContent(idx+1, std/mean)
+         preso_rms.SetBinError(idx+1, err)
         
          #fill the pt-dependent response plot with the mean of the response.
-         response_pt_rms.SetBinContent(idx, mean)
+         response_pt_rms.SetBinContent(idx+1, mean)
          err2 = 0.0
          if std > 0.0 and mean > 0.0: 
              err2 = mean * math.sqrt(std_error**2 / std**2 + mean_error**2 / mean**2)
-         response_pt_rms.SetBinError(idx, err2)
+         response_pt_rms.SetBinError(idx+1, err2)
          
       fout.Write()
    fout.Close()   
@@ -165,6 +168,9 @@ def main():
    sforig = argv[1]
    
    treepath = "DQMData/Run 1/Physics/Run summary"
+   
+   # Run in batch mode for avoiding pop-up windows when fitting
+   r.gROOT.SetBatch(r.kTRUE)
    
    add_response_and_resolution(sforig, treepath)
 
