@@ -26,7 +26,7 @@ def createOffsetVPSet():
             name = default.offset_name( "mu", mu, pftype )
             plots += [ plotPSet(
                 name,
-                name+";#eta;Offset Energy_{T} [GeV]",
+                name+";#eta;<Offset Energy_{T}> [GeV]",
                 "{0}muPlots/mu{1}".format(default.offsetDir, mu),
                 #variable xbinning
                 0, 0, 0, default.eBinsOffset, default.eLowOffset, default.eHighOffset,
@@ -50,12 +50,12 @@ def createTH1DVPSet():
     #hname, title, xmax
     toplot = ( ("mu", "#mu", default.muHighOffset), ("npv", "N_{PV}", default.npvHighOffset) )
 
-    for tup in toplot :
+    for hname, title, xmax in toplot :
         plots += [ plotPSet(
-                tup[0],
-                tup[0] + ";" + tup[1],
+                hname,
+                hname + ";" + title,
                 default.offsetDir,
-                tup[2]*2, 0, tup[2]
+                xmax*2, 0, xmax
             )]
     return plots
 
@@ -71,6 +71,9 @@ offsetAnalyzerDQM = cms.EDProducer("OffsetAnalyzerDQM",
     offsetPlotBaseName = cms.string(default.offsetPlotBaseName),
     offsetPlots = cms.VPSet( createOffsetVPSet() ),
     th1dPlots = cms.VPSet( createTH1DVPSet() ),
+
+    pftypes = cms.vstring( default.candidateType ),
+    etabins = cms.vdouble( default.etaBinsOffset )
 )
 
 #print( offsetAnalyzerDQM.offsetPlots[455].parameters_  )

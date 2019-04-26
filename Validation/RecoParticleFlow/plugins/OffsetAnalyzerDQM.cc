@@ -24,6 +24,7 @@ protected:
     void bookHistograms(DQMStore::IBooker&, edm::Run const&, edm::EventSetup const&) override;
     void dqmBeginRun(const edm::Run&, const edm::EventSetup&) override {}
     void endRun(const edm::Run&, const edm::EventSetup&) override {}
+    int getEtaIndex(float eta);
 
 private:
     struct Plot1D {
@@ -76,6 +77,8 @@ private:
     std::map<int, std::string> pdgMap;
 
     std::string offsetPlotBaseName;
+    std::vector<std::string> pftypes;
+    std::vector<double> etabins;
 
     edm::EDGetTokenT< edm::View<reco::Vertex> > pvToken;
     edm::EDGetTokenT< edm::View<PileupSummaryInfo> > muToken;
@@ -89,6 +92,9 @@ OffsetAnalyzerDQM::OffsetAnalyzerDQM(const edm::ParameterSet& iConfig)
     pvToken = consumes< edm::View<reco::Vertex> >( iConfig.getParameter<edm::InputTag>("pvTag") );
     muToken = consumes< edm::View<PileupSummaryInfo> >( iConfig.getParameter<edm::InputTag>("muTag") );
     pfToken = consumes< edm::View<pat::PackedCandidate> >( iConfig.getParameter<edm::InputTag>("pfTag") );
+
+    etabins = iConfig.getParameter< std::vector<double> >("etabins");
+    pftypes = iConfig.getParameter< std::vector<std::string> >("pftypes");
 
     //initialize offset plots
     const auto& offset_psets = iConfig.getParameter<std::vector<edm::ParameterSet>>("offsetPlots");
@@ -139,12 +145,16 @@ void OffsetAnalyzerDQM::analyze(const edm::Event& iEvent, const edm::EventSetup&
     edm::Handle< edm::View<reco::Vertex> > vertexHandle;
     iEvent.getByToken(pvToken, vertexHandle);
 
+    unsigned int nPVall = vertexHandle->size();
+    bool isGoodPV[ nPVall ] = {false};
     int npv = 0;
-    for (unsigned int i=0, n=vertexHandle->size(); i<n; i++) {
+    for (unsigned int i=0; i<nPVall; i++) {
         const auto& pv = vertexHandle->at(i);
 
-        if( !pv.isFake() && pv.ndof() >= 4 && fabs(pv.z()) <= 24.0 && fabs(pv.position().rho()) <= 2.0 )
+        if( !pv.isFake() && pv.ndof() >= 4 && fabs(pv.z()) <= 24.0 && fabs(pv.position().rho()) <= 2.0 ) {
             npv++;
+            isGoodPV[i] = true;
+        }
     }
     th1dPlots["npv"].fill( npv );
 
@@ -153,11 +163,17 @@ void OffsetAnalyzerDQM::analyze(const edm::Event& iEvent, const edm::EventSetup&
     edm::Handle< edm::View<PileupSummaryInfo> > muHandle;
     if ( iEvent.getByToken(muToken, muHandle) ) {
 
-      int bx = muHandle->size()==1 ? 0 : 1;
+      int bx = muHandle->size()==1 ? 0 : 12; //12 is in time BX
       float mu = muHandle->at(bx).getTrueNumInteractions();
       th1dPlots["mu"].fill( mu );
       int_mu = mu + 0.5;
     }
+
+    //create map of pftypes vs total energy / eta
+    std::map<std::string, std::vector<double>> m_pftype_etaE;
+    int nEta = etabins.size()-1;
+    for ( const auto& pftype : pftypes )
+      m_pftype_etaE[pftype].assign( nEta, 0.0 );
 
     //pf particles//
     edm::Handle< edm::View<pat::PackedCandidate> > pfHandle;
@@ -166,45 +182,72 @@ void OffsetAnalyzerDQM::analyze(const edm::Event& iEvent, const edm::EventSetup&
     for (unsigned int i=0, n=pfHandle->size(); i<n ; i++) {
         const auto& cand = pfHandle->at(i);
 
+        int etaIndex = getEtaIndex( cand.eta() );
         std::string pftype = pdgMap[ abs(cand.pdgId()) ];
-        if ( pftype == "" ) continue;
+        if ( etaIndex == -1 || pftype == "" ) continue;
 
         if ( pftype == "chm" ) { //check charged hadrons ONLY
             bool attached = false;
 
-            for (unsigned int ipv=0, endpv=vertexHandle->size(); ipv<endpv && !attached; ipv++) {
-                const auto& pv = vertexHandle->at(ipv);
-                if ( !pv.isFake() && pv.ndof() >= 4 && fabs(pv.z()) <= 24.0 && fabs(pv.position().rho()) <= 2.0 ) { //must be attached to a good pv
-                    if ( cand.fromPV(ipv) == 3 ) attached = true; //pv used in fit
-                }
+            for (unsigned int ipv=0; ipv<nPVall && !attached; ipv++) {
+                if ( isGoodPV[ipv] && cand.fromPV(ipv) == 3 ) attached = true; //pv used in fit
             }
             if (!attached) pftype = "chu"; //unmatched charged hadron
         }
 ////AOD////
-//        reco::TrackRef candTrkRef( cand.trackRef() );
-//        if ( pftype == "chm" && !candTrkRef.isNull() ) { //check charged hadrons ONLY
-//            bool attached = false;
-//
-//            for (auto ipv=vertexHandle->begin(), endpv=vertexHandle->end(); ipv != endpv && !attached; ++ipv) {
-//                if ( !ipv->isFake() && ipv->ndof() >= 4 && fabs(ipv->z()) < 24 ) { //must be attached to a good pv
-//
-//                    for(auto ivtrk=ipv->tracks_begin(), endvtrk=ipv->tracks_end(); ivtrk != endvtrk && !attached; ++ivtrk) {
-//                        reco::TrackRef pvTrkRef(ivtrk->castTo<reco::TrackRef>());
-//                        if (pvTrkRef == candTrkRef) attached = true;
-//                    }
-//                }
-//            }
-//            if (!attached) pftype = "chu"; //unmatched charged hadron
-//        }
+/*
+        reco::TrackRef candTrkRef( cand.trackRef() );
+        if ( pftype == "chm" && !candTrkRef.isNull() ) { //check charged hadrons ONLY
+            bool attached = false;
+
+            for (auto ipv=vertexHandle->begin(), endpv=vertexHandle->end(); ipv != endpv && !attached; ++ipv) {
+                if ( !ipv->isFake() && ipv->ndof() >= 4 && fabs(ipv->z()) < 24 ) { //must be attached to a good pv
+
+                    for(auto ivtrk=ipv->tracks_begin(), endvtrk=ipv->tracks_end(); ivtrk != endvtrk && !attached; ++ivtrk) {
+                        reco::TrackRef pvTrkRef(ivtrk->castTo<reco::TrackRef>());
+                        if (pvTrkRef == candTrkRef) attached = true;
+                    }
+                }
+            }
+            if (!attached) pftype = "chu"; //unmatched charged hadron
+        }
+*/
 ///////////
+        m_pftype_etaE[ pftype ][ etaIndex ] += cand.et();
+    }
+
+    for ( const auto& pair : m_pftype_etaE ) {
+        std::string pftype = pair.first;
+        std::vector<double> etaE = pair.second;
+
         std::string offset_name_npv = offsetPlotBaseName + "_npv" + std::to_string(npv) + "_" + pftype;
-        offsetPlots[offset_name_npv].fill( cand.eta(), cand.et() );
+        if (offsetPlots.find(offset_name_npv)==offsetPlots.end()) return; //npv is out of range
+
+        for (int i=0; i<nEta; i++) {
+            double eta = 0.5*(etabins[i] + etabins[i+1]);
+            offsetPlots[offset_name_npv].fill( eta, etaE[i] );
+        }
 
         if (int_mu != -1) {
             std::string offset_name_mu = offsetPlotBaseName + "_mu" + std::to_string(int_mu) + "_" + pftype;
-            offsetPlots[offset_name_mu].fill( cand.eta(), cand.et() );
+            if (offsetPlots.find(offset_name_mu)==offsetPlots.end()) return; //mu is out of range
+
+            for (int i=0; i<nEta; i++) {
+                double eta = 0.5*(etabins[i] + etabins[i+1]);
+                offsetPlots[offset_name_mu].fill( eta, etaE[i] );
+            }
         }
     }
+}
+
+int OffsetAnalyzerDQM::getEtaIndex( float eta ) {
+  int nEta = etabins.size()-1;
+
+  for (int i=0; i<nEta; i++) {
+    if ( etabins[i] <= eta && eta < etabins[i+1] ) return i;
+  }
+  if (eta == etabins[nEta]) return nEta-1;
+  else return -1;
 }
 
 #include "FWCore/Framework/interface/MakerMacros.h"
