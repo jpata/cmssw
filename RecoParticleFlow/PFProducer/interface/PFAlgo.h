@@ -251,6 +251,7 @@ class PFAlgo {
   void photonAlgo(const reco::PFBlockRef &blockref, std::vector<bool>& active, std::vector<reco::PFCandidate>& tempElectronCandidates);
   void EGammaAlgo(const reco::PFBlockRef &blockref, std::vector<bool>& active);
   void conversionAlgo(const edm::OwnVector<reco::PFBlockElement> &elements, std::vector<bool>& active);
+  void EleLoop1(const reco::PFBlock &block, reco::PFBlock::LinkData& linkData, const edm::OwnVector<reco::PFBlockElement> &elements, std::vector<bool>& active, const reco::PFBlockRef &blockref, ElementIndices& inds, std::vector<bool> &deadArea);
 
   /// Reconstruct a charged particle from a track
   /// Returns the index of the newly created candidate in pfCandidates_
