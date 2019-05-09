@@ -667,6 +667,26 @@ void PFAlgo::EGammaAlgo(const reco::PFBlockRef &blockref, std::vector<bool>& act
     }     // end loop on EGM candidates
 }
 
+void PFAlgo::conversionAlgo(const edm::OwnVector<reco::PFBlockElement> &elements, std::vector<bool>& active) {
+    for (unsigned iEle = 0; iEle < elements.size(); iEle++) {
+      PFBlockElement::Type type = elements[iEle].type();
+      if (type == PFBlockElement::TRACK) {
+        if (elements[iEle].trackRef()->algo() ==
+            reco::TrackBase::conversionStep)
+          active[iEle] = false;
+        if (elements[iEle].trackRef()->quality(reco::TrackBase::highPurity))
+          continue;
+        const auto *trackRef =
+            dynamic_cast<const reco::PFBlockElementTrack *>((&elements[iEle]));
+        if (!(trackRef->trackType(reco::PFBlockElement::T_FROM_GAMMACONV)))
+          continue;
+        if (!elements[iEle].convRefs().empty())
+          active[iEle] = false;
+      }
+    }
+}
+
+
 void PFAlgo::processBlock(const reco::PFBlockRef &blockref,
                           std::list<reco::PFBlockRef> &hcalBlockRefs,
                           std::list<reco::PFBlockRef> &ecalBlockRefs) {
@@ -737,22 +757,7 @@ void PFAlgo::processBlock(const reco::PFBlockRef &blockref,
 
   // Lock extra conversion tracks not used by Photon Algo
   if (usePFConversions_) {
-    for (unsigned iEle = 0; iEle < elements.size(); iEle++) {
-      PFBlockElement::Type type = elements[iEle].type();
-      if (type == PFBlockElement::TRACK) {
-        if (elements[iEle].trackRef()->algo() ==
-            reco::TrackBase::conversionStep)
-          active[iEle] = false;
-        if (elements[iEle].trackRef()->quality(reco::TrackBase::highPurity))
-          continue;
-        const auto *trackRef =
-            dynamic_cast<const reco::PFBlockElementTrack *>((&elements[iEle]));
-        if (!(trackRef->trackType(reco::PFBlockElement::T_FROM_GAMMACONV)))
-          continue;
-        if (!elements[iEle].convRefs().empty())
-          active[iEle] = false;
-      }
-    }
+    conversionAlgo(elements, active);
   }
 
   if (debug_)
