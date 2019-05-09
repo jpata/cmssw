@@ -496,72 +496,7 @@ void PFAlgo::photonAlgo(const reco::PFBlockRef &blockref, std::vector<bool>& act
     pfPhotonCandidates_->clear();
 }
 
-void PFAlgo::processBlock(const reco::PFBlockRef &blockref,
-                          std::list<reco::PFBlockRef> &hcalBlockRefs,
-                          std::list<reco::PFBlockRef> &ecalBlockRefs) {
-
-  // debug_ = false;
-  assert(!blockref.isNull());
-  const reco::PFBlock &block = *blockref;
-
-  if (debug_) {
-    cout << "#########################################################" << endl;
-    cout << "#####           Process Block:                      #####" << endl;
-    cout << "#########################################################" << endl;
-    cout << block << endl;
-  }
-
-  const edm::OwnVector<reco::PFBlockElement> &elements = block.elements();
-  // make a copy of the link data, which will be edited.
-  PFBlock::LinkData linkData = block.linkData();
-
-  // keep track of the elements which are still active.
-  vector<bool> active(elements.size(), true);
-
-  // //PFElectrons:
-  // usePFElectrons_ external configurable parameter to set the usage of pf
-  // electron
-  std::vector<reco::PFCandidate> tempElectronCandidates;
-  tempElectronCandidates.clear();
-  if (usePFElectrons_) {
-    if (pfele_->isElectronValidCandidate(blockref, active, primaryVertex_)) {
-      // if there is at least a valid candidate is get the vector of
-      // pfcandidates
-      const std::vector<reco::PFCandidate> PFElectCandidates_(
-          pfele_->getElectronCandidates());
-      for (auto const &ec : PFElectCandidates_)
-        tempElectronCandidates.push_back(ec);
-
-      // (***) We're filling the ElectronCandidates into the PFCandiate
-      // collection
-      // ..... Once we let PFPhotonAlgo over-write electron-decision, we need to
-      // move this to
-      // ..... after the PhotonAlgo has run (Fabian)
-    }
-    // The vector active is automatically changed (it is passed by ref) in
-    // PFElectronAlgo for all the electron candidate
-    pfElectronCandidates_->insert(pfElectronCandidates_->end(),
-                                  pfele_->getAllElectronCandidates().begin(),
-                                  pfele_->getAllElectronCandidates().end());
-
-    pfElectronExtra_.insert(pfElectronExtra_.end(),
-                            pfele_->getElectronExtra().begin(),
-                            pfele_->getElectronExtra().end());
-  }
-  if (/* --- */ usePFPhotons_ /* --- */) {
-    photonAlgo(blockref, active, tempElectronCandidates);
-  } // end of Photon algo
-
-  if (usePFElectrons_) {
-    for (auto const &ec : tempElectronCandidates) {
-      pfCandidates_->push_back(ec);
-    }
-    tempElectronCandidates.clear();
-  }
-
-  // New EGamma Reconstruction 10/10/2013
-  if (useEGammaFilters_) {
-
+void PFAlgo::EGammaAlgo(const reco::PFBlockRef &blockref, std::vector<bool>& active) {
     // const edm::ValueMap<reco::GsfElectronRef> &
     // myGedElectronValMap(*valueMapGedElectrons_);
     bool egmLocalDebug = debug_;
@@ -627,10 +562,11 @@ void PFAlgo::processBlock(const reco::PFBlockRef &blockref,
       } // end same block
 
       if (isGoodElectron && isGoodPhoton) {
-        if (isPrimaryElectron)
+        if (isPrimaryElectron) {
           isGoodPhoton = false;
-        else
+        } else {
           isGoodElectron = false;
+        }
       }
 
       // isElectron
@@ -729,6 +665,74 @@ void PFAlgo::processBlock(const reco::PFBlockRef &blockref,
         } // end isSafe
       }   // end isGoodPhoton
     }     // end loop on EGM candidates
+}
+
+void PFAlgo::processBlock(const reco::PFBlockRef &blockref,
+                          std::list<reco::PFBlockRef> &hcalBlockRefs,
+                          std::list<reco::PFBlockRef> &ecalBlockRefs) {
+
+  // debug_ = false;
+  assert(!blockref.isNull());
+  const reco::PFBlock &block = *blockref;
+
+  if (debug_) {
+    cout << "#########################################################" << endl;
+    cout << "#####           Process Block:                      #####" << endl;
+    cout << "#########################################################" << endl;
+    cout << block << endl;
+  }
+
+  const edm::OwnVector<reco::PFBlockElement> &elements = block.elements();
+  // make a copy of the link data, which will be edited.
+  PFBlock::LinkData linkData = block.linkData();
+
+  // keep track of the elements which are still active.
+  vector<bool> active(elements.size(), true);
+
+  // //PFElectrons:
+  // usePFElectrons_ external configurable parameter to set the usage of pf
+  // electron
+  std::vector<reco::PFCandidate> tempElectronCandidates;
+  tempElectronCandidates.clear();
+  if (usePFElectrons_) {
+    if (pfele_->isElectronValidCandidate(blockref, active, primaryVertex_)) {
+      // if there is at least a valid candidate is get the vector of
+      // pfcandidates
+      const std::vector<reco::PFCandidate> PFElectCandidates_(
+          pfele_->getElectronCandidates());
+      for (auto const &ec : PFElectCandidates_)
+        tempElectronCandidates.push_back(ec);
+
+      // (***) We're filling the ElectronCandidates into the PFCandiate
+      // collection
+      // ..... Once we let PFPhotonAlgo over-write electron-decision, we need to
+      // move this to
+      // ..... after the PhotonAlgo has run (Fabian)
+    }
+    // The vector active is automatically changed (it is passed by ref) in
+    // PFElectronAlgo for all the electron candidate
+    pfElectronCandidates_->insert(pfElectronCandidates_->end(),
+                                  pfele_->getAllElectronCandidates().begin(),
+                                  pfele_->getAllElectronCandidates().end());
+
+    pfElectronExtra_.insert(pfElectronExtra_.end(),
+                            pfele_->getElectronExtra().begin(),
+                            pfele_->getElectronExtra().end());
+  }
+  if (/* --- */ usePFPhotons_ /* --- */) {
+    photonAlgo(blockref, active, tempElectronCandidates);
+  } // end of Photon algo
+
+  if (usePFElectrons_) {
+    for (auto const &ec : tempElectronCandidates) {
+      pfCandidates_->push_back(ec);
+    }
+    tempElectronCandidates.clear();
+  }
+
+  // New EGamma Reconstruction 10/10/2013
+  if (useEGammaFilters_) {
+    EGammaAlgo(blockref, active);
   }       // end if use EGammaFilters
 
   // Lock extra conversion tracks not used by Photon Algo
