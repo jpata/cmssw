@@ -46,8 +46,10 @@ using namespace reco;
 
 PFAlgo::PFAlgo()
     : pfCandidates_(new PFCandidateCollection), nSigmaECAL_(0), nSigmaHCAL_(1),
-      algo_(1), debug_(false), pfele_(nullptr), pfpho_(nullptr),
-      pfegamma_(nullptr), useVertices_(false) {}
+      algo_(1), debug_(true), pfele_(nullptr), pfpho_(nullptr),
+      pfegamma_(nullptr), useVertices_(false) {
+    std::cout << "Modified PFAlgo" << std::endl;
+}
 
 PFAlgo::~PFAlgo() {
   if (usePFElectrons_)
@@ -686,7 +688,7 @@ void PFAlgo::conversionAlgo(const edm::OwnVector<reco::PFBlockElement> &elements
     }
 }
 
-bool PFAlgo::decideType(const edm::OwnVector<reco::PFBlockElement> &elements, const reco::PFBlockElement::Type type, std::vector<bool>& active, ElementIndices& inds, std::vector<bool> &deadArea, unsigned int iEle) {
+int PFAlgo::decideType(const edm::OwnVector<reco::PFBlockElement> &elements, const reco::PFBlockElement::Type type, std::vector<bool>& active, ElementIndices& inds, std::vector<bool> &deadArea, unsigned int iEle) {
   switch (type) {
   case PFBlockElement::TRACK:
     if (active[iEle]) {
@@ -694,14 +696,14 @@ bool PFAlgo::decideType(const edm::OwnVector<reco::PFBlockElement> &elements, co
       if (debug_)
         cout << "TRACK, stored index, continue" << endl;
     }
-    return false;
+    break;
   case PFBlockElement::ECAL:
     if (active[iEle]) {
       inds.ecalIs.push_back(iEle);
       if (debug_)
         cout << "ECAL, stored index, continue" << endl;
     }
-    return true;
+    return 1;
   case PFBlockElement::HCAL:
     if (active[iEle]) {
       if (elements[iEle].clusterRef()->flags() &
@@ -710,13 +712,13 @@ bool PFAlgo::decideType(const edm::OwnVector<reco::PFBlockElement> &elements, co
           cout << "HCAL DEAD AREA: remember and skip." << endl;
         active[iEle] = false;
         deadArea[iEle] = true;
-        return true;
+        return 1;
       }
       inds.hcalIs.push_back(iEle);
       if (debug_)
         cout << "HCAL, stored index, continue" << endl;
     }
-    return true;
+    return 1;
   case PFBlockElement::HO:
     if (useHO_) {
       if (active[iEle]) {
@@ -725,25 +727,25 @@ bool PFAlgo::decideType(const edm::OwnVector<reco::PFBlockElement> &elements, co
           cout << "HO, stored index, continue" << endl;
       }
     }
-    return true;
+    return 1;
   case PFBlockElement::HFEM:
     if (active[iEle]) {
       inds.hfEmIs.push_back(iEle);
       if (debug_)
         cout << "HFEM, stored index, continue" << endl;
     }
-    return true;
+    return 1;
   case PFBlockElement::HFHAD:
     if (active[iEle]) {
       inds.hfHadIs.push_back(iEle);
       if (debug_)
         cout << "HFHAD, stored index, continue" << endl;
     }
-    return true;
+    return 1;
   default:
-    return true;
+    return 1;
   }
-  return true;
+  return 0;
 }
 
 bool PFAlgo::recoTracksNotHCAL(const reco::PFBlock &block, reco::PFBlock::LinkData& linkData, const edm::OwnVector<reco::PFBlockElement> &elements, const reco::PFBlockRef &blockref, std::vector<bool>& active, bool goodTrackDeadHcal, bool hasDeadHcal, unsigned int iTrack, std::multimap<double, unsigned>& ecalElems, reco::TrackRef& trackRef) {
@@ -1301,12 +1303,9 @@ void PFAlgo::EleLoop1(const reco::PFBlock &block, reco::PFBlock::LinkData& linkD
       if (debug_ && type != PFBlockElement::BREM)
         cout << endl << elements[iEle];
 
-    auto doContinue = decideType(elements, type, active, inds, deadArea, iEle);
-    if (doContinue) {
+    auto ret_decideType = decideType(elements, type, active, inds, deadArea, iEle);
+    if (ret_decideType == 1) {
       continue;
-    }
-    else {
-      break;
     }
 
     // we're now dealing with a track
@@ -1658,6 +1657,108 @@ void PFAlgo::EleLoop1(const reco::PFBlock &block, reco::PFBlock::LinkData& linkD
   }   // end of loop 1 on elements iEle of any type
 }
 
+void PFAlgo::HFalgo(const reco::PFBlock &block, const reco::PFBlockRef &blockref, const edm::OwnVector<reco::PFBlockElement> &elements, ElementIndices& inds) {
+  // there is at least one HF element in this block.
+  // so all elements must be HF.
+  assert(inds.hfEmIs.size() + inds.hfHadIs.size() == elements.size());
+
+  if (elements.size() == 1) {
+    // Auguste: HAD-only calibration here
+    reco::PFClusterRef clusterRef = elements[0].clusterRef();
+    double energyHF = 0.;
+    double uncalibratedenergyHF = 0.;
+    unsigned tmpi = 0;
+    switch (clusterRef->layer()) {
+    case PFLayer::HF_EM:
+      // do EM-only calibration here
+      energyHF = clusterRef->energy();
+      uncalibratedenergyHF = energyHF;
+      if (thepfEnergyCalibrationHF_->getcalibHF_use() == true) {
+        energyHF = thepfEnergyCalibrationHF_->energyEm(
+            uncalibratedenergyHF, clusterRef->positionREP().Eta(),
+            clusterRef->positionREP().Phi());
+      }
+      tmpi = reconstructCluster(*clusterRef, energyHF);
+      (*pfCandidates_)[tmpi].setEcalEnergy(uncalibratedenergyHF, energyHF);
+      (*pfCandidates_)[tmpi].setHcalEnergy(0., 0.);
+      (*pfCandidates_)[tmpi].setHoEnergy(0., 0.);
+      (*pfCandidates_)[tmpi].setPs1Energy(0.);
+      (*pfCandidates_)[tmpi].setPs2Energy(0.);
+      (*pfCandidates_)[tmpi].addElementInBlock(blockref, inds.hfEmIs[0]);
+      // std::cout << "HF EM alone ! " << energyHF << std::endl;
+      break;
+    case PFLayer::HF_HAD:
+      // do HAD-only calibration here
+      energyHF = clusterRef->energy();
+      uncalibratedenergyHF = energyHF;
+      if (thepfEnergyCalibrationHF_->getcalibHF_use() == true) {
+        energyHF = thepfEnergyCalibrationHF_->energyHad(
+            uncalibratedenergyHF, clusterRef->positionREP().Eta(),
+            clusterRef->positionREP().Phi());
+      }
+      tmpi = reconstructCluster(*clusterRef, energyHF);
+      (*pfCandidates_)[tmpi].setHcalEnergy(uncalibratedenergyHF, energyHF);
+      (*pfCandidates_)[tmpi].setEcalEnergy(0., 0.);
+      (*pfCandidates_)[tmpi].setHoEnergy(0., 0.);
+      (*pfCandidates_)[tmpi].setPs1Energy(0.);
+      (*pfCandidates_)[tmpi].setPs2Energy(0.);
+      (*pfCandidates_)[tmpi].addElementInBlock(blockref, inds.hfHadIs[0]);
+      // std::cout << "HF Had alone ! " << energyHF << std::endl;
+      break;
+    default:
+      assert(0);
+    }
+  } else if (elements.size() == 2) {
+    // Auguste: EM + HAD calibration here
+    reco::PFClusterRef c0 = elements[0].clusterRef();
+    reco::PFClusterRef c1 = elements[1].clusterRef();
+    // 2 HF elements. Must be in each layer.
+    reco::PFClusterRef cem = (c0->layer() == PFLayer::HF_EM ? c0 : c1);
+    reco::PFClusterRef chad = (c1->layer() == PFLayer::HF_HAD ? c1 : c0);
+
+    if (cem->layer() != PFLayer::HF_EM || chad->layer() != PFLayer::HF_HAD) {
+      cerr << "Error: 2 elements, but not 1 HFEM and 1 HFHAD" << endl;
+      cerr << block << endl;
+      assert(0);
+      //  assert( c1->layer()== PFLayer::HF_EM &&
+      //    c0->layer()== PFLayer::HF_HAD );
+    }
+    // do EM+HAD calibration here
+    double energyHfEm = cem->energy();
+    double energyHfHad = chad->energy();
+    double uncalibratedenergyHFEm = energyHfEm;
+    double uncalibratedenergyHFHad = energyHfHad;
+    if (thepfEnergyCalibrationHF_->getcalibHF_use() == true) {
+
+      energyHfEm = thepfEnergyCalibrationHF_->energyEmHad(
+          uncalibratedenergyHFEm, 0.0, c0->positionREP().Eta(),
+          c0->positionREP().Phi());
+      energyHfHad = thepfEnergyCalibrationHF_->energyEmHad(
+          0.0, uncalibratedenergyHFHad, c1->positionREP().Eta(),
+          c1->positionREP().Phi());
+    }
+    auto &cand =
+        (*pfCandidates_)[reconstructCluster(*chad, energyHfEm + energyHfHad)];
+    cand.setEcalEnergy(uncalibratedenergyHFEm, energyHfEm);
+    cand.setHcalEnergy(uncalibratedenergyHFHad, energyHfHad);
+    cand.setHoEnergy(0., 0.);
+    cand.setPs1Energy(0.);
+    cand.setPs2Energy(0.);
+    cand.addElementInBlock(blockref, inds.hfEmIs[0]);
+    cand.addElementInBlock(blockref, inds.hfHadIs[0]);
+    // std::cout << "HF EM+HAD found ! " << energyHfEm << " " << energyHfHad
+    // << std::endl;
+  } else {
+    // 1 HF element in the block,
+    // but number of elements not equal to 1 or 2
+    cerr << "Warning: HF, but n elem different from 1 or 2" << endl;
+    cerr << block << endl;
+    //       assert(0);
+    //       cerr<<"not ready for navigation in the HF!"<<endl;
+  }
+}
+
+
 void PFAlgo::processBlock(const reco::PFBlockRef &blockref,
                           std::list<reco::PFBlockRef> &hcalBlockRefs,
                           std::list<reco::PFBlockRef> &ecalBlockRefs) {
@@ -1759,16 +1860,6 @@ void PFAlgo::processBlock(const reco::PFBlockRef &blockref,
   //       - cut link to farthest hcal cluster, if more than 1.
 
   // vectors to store indices to ho, hcal and ecal elements
-  vector<unsigned> hcalIs;
-  vector<unsigned> hoIs;
-  vector<unsigned> ecalIs;
-  vector<unsigned> trackIs;
-  vector<unsigned> ps1Is;
-  vector<unsigned> ps2Is;
-
-  vector<unsigned> hfEmIs;
-  vector<unsigned> hfHadIs;
-
   vector<bool> deadArea(elements.size(), false);
 
   ElementIndices inds;
@@ -1776,105 +1867,8 @@ void PFAlgo::processBlock(const reco::PFBlockRef &blockref,
 
 
   // deal with HF.
-  if (!(hfEmIs.empty() && hfHadIs.empty())) {
-    // there is at least one HF element in this block.
-    // so all elements must be HF.
-    assert(hfEmIs.size() + hfHadIs.size() == elements.size());
-
-    if (elements.size() == 1) {
-      // Auguste: HAD-only calibration here
-      reco::PFClusterRef clusterRef = elements[0].clusterRef();
-      double energyHF = 0.;
-      double uncalibratedenergyHF = 0.;
-      unsigned tmpi = 0;
-      switch (clusterRef->layer()) {
-      case PFLayer::HF_EM:
-        // do EM-only calibration here
-        energyHF = clusterRef->energy();
-        uncalibratedenergyHF = energyHF;
-        if (thepfEnergyCalibrationHF_->getcalibHF_use() == true) {
-          energyHF = thepfEnergyCalibrationHF_->energyEm(
-              uncalibratedenergyHF, clusterRef->positionREP().Eta(),
-              clusterRef->positionREP().Phi());
-        }
-        tmpi = reconstructCluster(*clusterRef, energyHF);
-        (*pfCandidates_)[tmpi].setEcalEnergy(uncalibratedenergyHF, energyHF);
-        (*pfCandidates_)[tmpi].setHcalEnergy(0., 0.);
-        (*pfCandidates_)[tmpi].setHoEnergy(0., 0.);
-        (*pfCandidates_)[tmpi].setPs1Energy(0.);
-        (*pfCandidates_)[tmpi].setPs2Energy(0.);
-        (*pfCandidates_)[tmpi].addElementInBlock(blockref, hfEmIs[0]);
-        // std::cout << "HF EM alone ! " << energyHF << std::endl;
-        break;
-      case PFLayer::HF_HAD:
-        // do HAD-only calibration here
-        energyHF = clusterRef->energy();
-        uncalibratedenergyHF = energyHF;
-        if (thepfEnergyCalibrationHF_->getcalibHF_use() == true) {
-          energyHF = thepfEnergyCalibrationHF_->energyHad(
-              uncalibratedenergyHF, clusterRef->positionREP().Eta(),
-              clusterRef->positionREP().Phi());
-        }
-        tmpi = reconstructCluster(*clusterRef, energyHF);
-        (*pfCandidates_)[tmpi].setHcalEnergy(uncalibratedenergyHF, energyHF);
-        (*pfCandidates_)[tmpi].setEcalEnergy(0., 0.);
-        (*pfCandidates_)[tmpi].setHoEnergy(0., 0.);
-        (*pfCandidates_)[tmpi].setPs1Energy(0.);
-        (*pfCandidates_)[tmpi].setPs2Energy(0.);
-        (*pfCandidates_)[tmpi].addElementInBlock(blockref, hfHadIs[0]);
-        // std::cout << "HF Had alone ! " << energyHF << std::endl;
-        break;
-      default:
-        assert(0);
-      }
-    } else if (elements.size() == 2) {
-      // Auguste: EM + HAD calibration here
-      reco::PFClusterRef c0 = elements[0].clusterRef();
-      reco::PFClusterRef c1 = elements[1].clusterRef();
-      // 2 HF elements. Must be in each layer.
-      reco::PFClusterRef cem = (c0->layer() == PFLayer::HF_EM ? c0 : c1);
-      reco::PFClusterRef chad = (c1->layer() == PFLayer::HF_HAD ? c1 : c0);
-
-      if (cem->layer() != PFLayer::HF_EM || chad->layer() != PFLayer::HF_HAD) {
-        cerr << "Error: 2 elements, but not 1 HFEM and 1 HFHAD" << endl;
-        cerr << block << endl;
-        assert(0);
-        // 	assert( c1->layer()== PFLayer::HF_EM &&
-        // 		c0->layer()== PFLayer::HF_HAD );
-      }
-      // do EM+HAD calibration here
-      double energyHfEm = cem->energy();
-      double energyHfHad = chad->energy();
-      double uncalibratedenergyHFEm = energyHfEm;
-      double uncalibratedenergyHFHad = energyHfHad;
-      if (thepfEnergyCalibrationHF_->getcalibHF_use() == true) {
-
-        energyHfEm = thepfEnergyCalibrationHF_->energyEmHad(
-            uncalibratedenergyHFEm, 0.0, c0->positionREP().Eta(),
-            c0->positionREP().Phi());
-        energyHfHad = thepfEnergyCalibrationHF_->energyEmHad(
-            0.0, uncalibratedenergyHFHad, c1->positionREP().Eta(),
-            c1->positionREP().Phi());
-      }
-      auto &cand =
-          (*pfCandidates_)[reconstructCluster(*chad, energyHfEm + energyHfHad)];
-      cand.setEcalEnergy(uncalibratedenergyHFEm, energyHfEm);
-      cand.setHcalEnergy(uncalibratedenergyHFHad, energyHfHad);
-      cand.setHoEnergy(0., 0.);
-      cand.setPs1Energy(0.);
-      cand.setPs2Energy(0.);
-      cand.addElementInBlock(blockref, hfEmIs[0]);
-      cand.addElementInBlock(blockref, hfHadIs[0]);
-      // std::cout << "HF EM+HAD found ! " << energyHfEm << " " << energyHfHad
-      // << std::endl;
-    } else {
-      // 1 HF element in the block,
-      // but number of elements not equal to 1 or 2
-      cerr << "Warning: HF, but n elem different from 1 or 2" << endl;
-      cerr << block << endl;
-      //       assert(0);
-      //       cerr<<"not ready for navigation in the HF!"<<endl;
-    }
+  if (!(inds.hfEmIs.empty() && inds.hfHadIs.empty())) {
+    HFalgo(block, blockref, elements, inds);
   }
 
   if (debug_) {
@@ -1888,7 +1882,7 @@ void PFAlgo::processBlock(const reco::PFBlockRef &blockref,
   // hcal energy
   // rescale
 
-  for (unsigned iHcal : hcalIs) {
+  for (unsigned iHcal : inds.hcalIs) {
     PFBlockElement::Type type = elements[iHcal].type();
 
     assert(type == PFBlockElement::HCAL);
@@ -3200,7 +3194,7 @@ void PFAlgo::processBlock(const reco::PFBlockRef &blockref,
 
   // COLINFEB16
   // now dealing with the HCAL elements that are not linked to any track
-  for (unsigned iHcal : hcalIs) {
+  for (unsigned iHcal : inds.hcalIs) {
 
     // Keep ECAL and HO elements for reference in the PFCandidate
     std::vector<unsigned> ecalRefs;
@@ -3429,8 +3423,8 @@ void PFAlgo::processBlock(const reco::PFBlockRef &blockref,
 
   // for each ecal element iEcal = ecalIs[i] in turn:
 
-  for (unsigned i = 0; i < ecalIs.size(); i++) {
-    unsigned iEcal = ecalIs[i];
+  for (unsigned i = 0; i < inds.ecalIs.size(); i++) {
+    unsigned iEcal = inds.ecalIs[i];
 
     if (debug_)
       cout << endl << elements[iEcal] << " ";
