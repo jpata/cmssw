@@ -210,7 +210,7 @@ void PFAlgo::reconstructParticles(const reco::PFBlockHandle& blockHandle, PFEGam
   if (muonHandle_.isValid())
     pfmu_->addMissingMuons(muonHandle_, pfCandidates_.get());
 
-  LogTrace("PFAlgo|reconstructParticles") << "end of function, pfCandidates_->size()=" << pfCandidates_->size();
+  LogTrace("PFAlgo|reconstructParticles") << "end of function PFAlgo::reconstructParticles, pfCandidates_->size()=" << pfCandidates_->size();
 }
 
 void PFAlgo::egammaFilters(const reco::PFBlockRef& blockref,
@@ -352,7 +352,7 @@ void PFAlgo::egammaFilters(const reco::PFBlockRef& blockref,
       }  // end isSafe
     }    // end isGoodPhoton
   }      // end loop on EGM candidates
-  LogTrace("PFAlgo|egammaFilters") << "end of function";
+  LogTrace("PFAlgo|egammaFilters") << "end of function PFAlgo::egammaFilters";
 }
 
 void PFAlgo::conversionAlgo(const edm::OwnVector<reco::PFBlockElement>& elements, std::vector<bool>& active) {
@@ -381,7 +381,7 @@ void PFAlgo::conversionAlgo(const edm::OwnVector<reco::PFBlockElement>& elements
       LogTrace("PFAlgo|conversionAlgo") << "active[iEle=" << iEle << "]=" << active[iEle];
     }
   }
-  LogTrace("PFAlgo|conversionAlgo") << "end of function";
+  LogTrace("PFAlgo|conversionAlgo") << "end of function PFAlgo::conversionAlgo";
 }
 
 bool PFAlgo::recoTracksNotHCAL(const reco::PFBlock& block,
@@ -839,7 +839,7 @@ bool PFAlgo::recoTracksNotHCAL(const reco::PFBlock& block,
       (*pfCandidates_)[tmpi[ic]].addElementInBlock(blockref, kTrack[ic]);
     }
   }
-  LogTrace("PFAlgo|recoTracksNotHCAL") << "end of function";
+  LogTrace("PFAlgo|recoTracksNotHCAL") << "end of function PFAlgo::recoTracksNotHCAL";
   return false;
 }
 
@@ -1129,7 +1129,7 @@ void PFAlgo::elementLoop(const reco::PFBlock& block,
     }  //loop hcal elements
     LogTrace("PFAlgo|elementLoop") << "end of loop over iEle";
   }  // end of loop 1 on elements iEle of any type
-  LogTrace("PFAlgo|elementLoop") << "end of function";
+  LogTrace("PFAlgo|elementLoop") << "end of function PFAlgo::elementLoop";
 }
 
 int PFAlgo::decideType(const edm::OwnVector<reco::PFBlockElement>& elements,
@@ -1284,7 +1284,7 @@ void PFAlgo::createCandidateHF(const reco::PFBlock& block,
     edm::LogWarning("PFAlgo::createCandidateHF") << "Warning: HF, but n elem different from 1 or 2";
     edm::LogWarning("PFAlgo::createCandidateHF") << block;
   }
-  LogTrace("PFAlgo|createCandidateHF") << "end of function";
+  LogTrace("PFAlgo|createCandidateHF") << "end of function PFAlgo::createCandidateHF";
 }
 
 void PFAlgo::createCandidatesHCAL(const reco::PFBlock& block,
@@ -2401,7 +2401,7 @@ void PFAlgo::createCandidatesHCAL(const reco::PFBlock& block,
 
   }  // hcalIs
   // end loop on hcal element iHcal= hcalIs[i]
-  LogTrace("PFAlgo|createCandidatesHCAL") << "end of function";
+  LogTrace("PFAlgo|createCandidatesHCAL") << "end of function PFAlgo::createCandidatesHCAL";
 }
 
 void PFAlgo::createCandidatesHCALUnlinked(const reco::PFBlock& block,
@@ -2662,7 +2662,7 @@ void PFAlgo::createCandidatesECAL(const reco::PFBlock& block,
     cand.addElementInBlock(blockref, iEcal);
 
   }  // end loop on ecal elements iEcal = ecalIs[i]
-  LogTrace("PFAlgo|createCandidatesECAL") << "end of function";
+  LogTrace("PFAlgo|createCandidatesECAL") << "end of function PFALgo::createCandidatesECAL";
 }
 
 void PFAlgo::processBlock(const reco::PFBlockRef& blockref,
@@ -2735,7 +2735,7 @@ void PFAlgo::processBlock(const reco::PFBlockRef& blockref,
   createCandidatesHCALUnlinked(block, linkData, elements, active, blockref, inds, deadArea);
   createCandidatesECAL(block, linkData, elements, active, blockref, inds, deadArea);
 
-  LogTrace("PFAlgo|processBlock") << "end of function";
+  LogTrace("PFAlgo|processBlock") << "end of function PFAlgo::processBlock";
 }  // end processBlock
 
 /////////////////////////////////////////////////////////////////////
