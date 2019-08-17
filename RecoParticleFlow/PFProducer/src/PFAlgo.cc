@@ -2416,7 +2416,7 @@ void PFAlgo::createCandidatesHCAL(const reco::PFBlock& block,
     }
 
     // Finally treat unused ecal satellites as photons.
-    LogTrace("PFAlgo|createCandidatesHCAL") << "start of loop over ecalSattellites.size()=" << ecalSattellites.size();
+    LogTrace("PFAlgo|createCandidatesHCAL") << "start of loop over ecalSatellites.size()=" << ecalSatellites.size();
     for (auto const& ecalSatellite : ecalSatellites) {
       // Ignore satellites already taken
       unsigned iEcal = std::get<0>(ecalSatellite.second);
