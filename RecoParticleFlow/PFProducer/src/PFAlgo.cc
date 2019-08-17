@@ -176,7 +176,7 @@ void PFAlgo::reconstructParticles(const reco::PFBlockHandle& blockHandle, PFEGam
 
   unsigned nblcks = 0;
   for (auto const& other : otherBlockRefs) {
-    LogTrace("PFAlgo|reconstructParticles") << "processBlock, Block number " << nblcks++;
+    LogTrace("PFAlgo|reconstructParticles") << "processBlock, Block number " << nblcks++ << ", nelem=" << (*other).elements().size();
     processBlock(other, hcalBlockRefs, ecalBlockRefs, pfegamma);
   }
 
@@ -185,14 +185,14 @@ void PFAlgo::reconstructParticles(const reco::PFBlockHandle& blockHandle, PFEGam
   unsigned hblcks = 0;
   // process remaining single hcal blocks
   for (auto const& hcal : hcalBlockRefs) {
-    LogTrace("PFAlgo|reconstructParticles") << "processBlock, HCAL block number " << hblcks++;
+    LogTrace("PFAlgo|reconstructParticles") << "processBlock, HCAL block number " << hblcks++ << ", nelem=" << (*hcal).elements().size();
     processBlock(hcal, empty, empty, pfegamma);
   }
 
   unsigned eblcks = 0;
   // process remaining single ecal blocks
   for (auto const& ecal : ecalBlockRefs) {
-    LogTrace("PFAlgo|reconstructParticles") << "processBlock, ECAL block number " << eblcks++;
+    LogTrace("PFAlgo|reconstructParticles") << "processBlock, ECAL block number " << eblcks++ << ", nelem=" << (*ecal).elements().size();
     processBlock(ecal, empty, empty, pfegamma);
   }
 
@@ -210,7 +210,7 @@ void PFAlgo::reconstructParticles(const reco::PFBlockHandle& blockHandle, PFEGam
   if (muonHandle_.isValid())
     pfmu_->addMissingMuons(muonHandle_, pfCandidates_.get());
 
-  LogTrace("PFAlgo|reconstructParticles") << "end of function PFAlgo::reconstructParticles, pfCandidates_->size()=" << pfCandidates_->size();
+  LogTrace("PFAlgo|reconstructParticles") << "end of function PFAlgo::reconstructParticles, pfCandidates_->size()=" << pfCandidates_->size() << endl << endl << endl;
 }
 
 void PFAlgo::egammaFilters(const reco::PFBlockRef& blockref,
@@ -355,9 +355,48 @@ void PFAlgo::egammaFilters(const reco::PFBlockRef& blockref,
   LogTrace("PFAlgo|egammaFilters") << "end of function PFAlgo::egammaFilters";
 }
 
+template <typename T>
+void printVec(const std::vector<T>& active, std::ostringstream& ss, const char* sep) {
+  for (auto a : active) {
+    ss << a << sep;
+  }
+}
+
+void printState(const std::vector<bool>& active) {
+  ostringstream ss;
+  ss << "active=";
+  printVec(active, ss, "");
+  LogTrace("PFAlgo|conversionAlgo") << ss.str();
+}
+
+void printState2(const std::vector<bool>& active, const std::vector<bool>& deadArea, const ElementIndices& inds) {
+  ostringstream ss;
+
+  ss << "active=";
+  printVec(active, ss, "");
+
+  ss << std::endl << "deadArea=";
+  printVec(deadArea, ss, "");
+
+  ss << std::endl << "inds.trackIs=";
+  printVec(inds.trackIs, ss, ",");
+  
+  ss << std::endl << "inds.ecalIs=";
+  printVec(inds.ecalIs, ss, ",");
+
+  ss << std::endl << "inds.hcalIs=";
+  printVec(inds.hcalIs, ss, ",");
+
+  LogTrace("PFAlgo|conversionAlgo") << ss.str();
+}
+
 void PFAlgo::conversionAlgo(const edm::OwnVector<reco::PFBlockElement>& elements, std::vector<bool>& active) {
   LogTrace("PFAlgo|conversionAlgo") << "start of function PFAlgo::conversionAlgo(), elements.size()="
                                     << elements.size();
+#ifdef EDM_ML_DEBUG
+  printState(active);
+#endif
+
   for (unsigned iEle = 0; iEle < elements.size(); iEle++) {
     PFBlockElement::Type type = elements[iEle].type();
     if (type == PFBlockElement::TRACK) {
@@ -381,6 +420,9 @@ void PFAlgo::conversionAlgo(const edm::OwnVector<reco::PFBlockElement>& elements
       LogTrace("PFAlgo|conversionAlgo") << "active[iEle=" << iEle << "]=" << active[iEle];
     }
   }
+#ifdef EDM_ML_DEBUG
+  printState(active);
+#endif
   LogTrace("PFAlgo|conversionAlgo") << "end of function PFAlgo::conversionAlgo";
 }
 
@@ -397,6 +439,9 @@ bool PFAlgo::recoTracksNotHCAL(const reco::PFBlock& block,
   LogTrace("PFAlgo|recoTracksNotHCAL") << "start of function PFAlgo::recoTracksNotHCAL(), now dealing with tracks "
                                           "linked to no HCAL clusters. Was HCal active? "
                                        << (!hasDeadHcal);
+#ifdef EDM_ML_DEBUG
+  printState(active);
+#endif
   // vector<unsigned> elementIndices;
   // elementIndices.push_back(iTrack);
 
@@ -839,6 +884,9 @@ bool PFAlgo::recoTracksNotHCAL(const reco::PFBlock& block,
       (*pfCandidates_)[tmpi[ic]].addElementInBlock(blockref, kTrack[ic]);
     }
   }
+#ifdef EDM_ML_DEBUG
+  printState(active);
+#endif
   LogTrace("PFAlgo|recoTracksNotHCAL") << "end of function PFAlgo::recoTracksNotHCAL";
   return false;
 }
@@ -850,12 +898,16 @@ void PFAlgo::elementLoop(const reco::PFBlock& block,
                          const reco::PFBlockRef& blockref,
                          ElementIndices& inds,
                          std::vector<bool>& deadArea) {
-  LogTrace("PFAlgo|elementLoop") << "start of function PFAlgo::elementLoop, elements.size()" << elements.size();
+  LogTrace("PFAlgo|elementLoop") << "start of function PFAlgo::elementLoop, elements.size()=" << elements.size();
   for (unsigned iEle = 0; iEle < elements.size(); iEle++) {
     PFBlockElement::Type type = elements[iEle].type();
 
-    LogTrace("PFAlgo|elementLoop") << "elements[iEle=" << iEle << "]=" << elements[iEle];
+    LogTrace("PFAlgo|elementLoop") << "main iEle loop elements[iEle=" << iEle << "]=" << elements[iEle];
     auto ret_decideType = decideType(elements, type, active, inds, deadArea, iEle);
+    #ifdef EDM_ML_DEBUG
+      printState2(active, deadArea, inds);
+    #endif
+    
     if (ret_decideType == 1) {
       LogTrace("PFAlgo|elementLoop") << "ret_decideType==1, continuing";
       continue;
@@ -949,6 +1001,7 @@ void PFAlgo::elementLoop(const reco::PFBlock& block,
     // for tracks with bad Hcal, check the quality
     bool goodTrackDeadHcal = false;
     if (hasDeadHcal) {
+      LogTrace("PFAlgo|elementLoop") << "hasDeadHcal=true";
       goodTrackDeadHcal = (trackRef->ptError() < goodTrackDeadHcal_ptErrRel_ * trackRef->pt() &&
                            trackRef->normalizedChi2() < goodTrackDeadHcal_chi2n_ &&
                            trackRef->hitPattern().trackerLayersWithMeasurement() >= goodTrackDeadHcal_layers_ &&
@@ -970,6 +1023,7 @@ void PFAlgo::elementLoop(const reco::PFBlock& block,
         goodTrackDeadHcal = true;
         // FIXME: may decide to do something to the track pT
       }
+      LogTrace("PFAlgo|elementLoop") << "goodTrackDeadHcal=" << goodTrackDeadHcal;
       //if (!goodTrackDeadHcal && trackRef->hitPattern().trackerLayersWithMeasurement() == 4 && trackRef->validFraction() == 1
       LogTrace("PFAlgo|elementLoop")
           << " track pt " << trackRef->pt() << " +- " << trackRef->ptError() << " layers valid "
@@ -995,7 +1049,7 @@ void PFAlgo::elementLoop(const reco::PFBlock& block,
       LogTrace("PFAlgo|elementLoop") << "The closest ECAL cluster is linked to " << sortedTracks.size()
                                      << " tracks, with distance = " << ecalElems.begin()->first;
 
-      LogTrace("PFAlgo|elementLoop") << "Looping over sortedTracks";
+      LogTrace("PFAlgo|elementLoop") << "Looping over sortedTracks, sortedTracks.size()=" << sortedTracks.size();
       // Loop over all tracks
       for (auto const& trk : sortedTracks) {
         unsigned jTrack = trk.second;
@@ -1031,6 +1085,7 @@ void PFAlgo::elementLoop(const reco::PFBlock& block,
             iTrack, sortedHCAL.begin()->second, sortedECAL.begin()->first, linkData, PFBlock::LINKTEST_RECHIT);
 
       }  // End other tracks
+      LogTrace("PFAlgo|elementLoop") << "end of loop over sortedTracks";
 
       // Redefine HCAL elements
       block.associatedElements(iTrack, linkData, hcalElems, reco::PFBlockElement::HCAL, reco::PFBlock::LINKTEST_ALL);
@@ -1058,8 +1113,7 @@ void PFAlgo::elementLoop(const reco::PFBlock& block,
 
     bool hcalFound = false;
 
-    LogTrace("PFAlgo|elementLoop") << "now looping on elements associated to the track: ecalElems";
-
+    LogTrace("PFAlgo|elementLoop") << "now looping on elements associated to the track: ecalElems, ecalElems.size()=" << ecalElems.size();
     // ... first on associated ECAL elements
     // Check if there is still a free ECAL for this track
     for (auto const& ecal : ecalElems) {
@@ -1087,6 +1141,7 @@ void PFAlgo::elementLoop(const reco::PFBlock& block,
                                        << " Sparing Ecal cluster for the hcal loop";
 
     }  //loop print ecal elements
+    LogTrace("PFAlgo|elementLoop") << "end of loop over ecalElems";
 
     // tracks which are not linked to an HCAL
     // are reconstructed now.
@@ -1101,6 +1156,7 @@ void PFAlgo::elementLoop(const reco::PFBlock& block,
 
     // In case several HCAL elements are linked to this track,
     // unlinking all of them except the closest.
+    LogTrace("PFAlgo|elementLoop") << "looping over hcalElems, hcalElems.size()=" << hcalElems.size();
     for (auto const& hcal : hcalElems) {
       unsigned index = hcal.second;
 
@@ -1127,8 +1183,9 @@ void PFAlgo::elementLoop(const reco::PFBlock& block,
         block.setLink(iTrack, index, -1., linkData, PFBlock::LINKTEST_RECHIT);
       }
     }  //loop hcal elements
-    LogTrace("PFAlgo|elementLoop") << "end of loop over iEle";
+    LogTrace("PFAlgo|elementLoop") << "end of loop over hcalElems";
   }  // end of loop 1 on elements iEle of any type
+  LogTrace("PFAlgo|elementLoop") << "end of outer loop over iEle";
   LogTrace("PFAlgo|elementLoop") << "end of function PFAlgo::elementLoop";
 }
 
@@ -1138,6 +1195,8 @@ int PFAlgo::decideType(const edm::OwnVector<reco::PFBlockElement>& elements,
                        ElementIndices& inds,
                        std::vector<bool>& deadArea,
                        unsigned int iEle) {
+  LogTrace("PFAlgo|decideType") << "start of function PFAlgo::decideType type=" << type << " active[iEle=" << iEle << "]=" << active[iEle];
+
   switch (type) {
     case PFBlockElement::TRACK:
       if (active[iEle]) {
@@ -2357,6 +2416,7 @@ void PFAlgo::createCandidatesHCAL(const reco::PFBlock& block,
     }
 
     // Finally treat unused ecal satellites as photons.
+    LogTrace("PFAlgo|createCandidatesHCAL") << "start of loop over ecalSattellites.size()=" << ecalSattellites.size();
     for (auto const& ecalSatellite : ecalSatellites) {
       // Ignore satellites already taken
       unsigned iEcal = std::get<0>(ecalSatellite.second);
@@ -2398,6 +2458,7 @@ void PFAlgo::createCandidatesHCAL(const reco::PFBlock& block,
             << sqrt(std::get<1>(ecalSatellite.second).Mag2()) << " " << ecalClusterEnergyCalibrated;
 
     }  // ecalSatellites
+    LogTrace("PFAlgo|createCandidatesHCAL") << "end of loop over ecalSattellites";
 
   }  // hcalIs
   // end loop on hcal element iHcal= hcalIs[i]
@@ -2825,9 +2886,9 @@ unsigned PFAlgo::reconstructCluster(const reco::PFCluster& cluster,
                                     double particleY,
                                     double particleZ) {
   LogTrace("PFAlgo|reconstructCluster") << "start of function PFAlgo::reconstructCluster, cluster=" << cluster
-                                        << "particleEnergy=" << particleEnergy << "useDirection=" << useDirection
-                                        << "particleX=" << particleX << "particleY=" << particleY
-                                        << "particleZ=" << particleZ;
+                                        << " particleEnergy=" << particleEnergy << " useDirection=" << useDirection
+                                        << " particleX=" << particleX << " particleY=" << particleY
+                                        << " particleZ=" << particleZ;
 
   reco::PFCandidate::ParticleType particleType = reco::PFCandidate::X;
 
@@ -2923,7 +2984,7 @@ unsigned PFAlgo::reconstructCluster(const reco::PFCluster& cluster,
 
   //*TODO* cluster time is not reliable at the moment, so only use track timing
 
-  LogTrace("PFAlgo|reconstructCluster") << "** candidate: " << pfCandidates_->back();
+  LogTrace("PFAlgo|reconstructCluster") << "end of function PFAlgo::reconstructCluster" << ", pfCandidates_[" << pfCandidates_->size()-1 << "]=" << pfCandidates_->back();
 
   // returns index to the newly created PFCandidate
   return pfCandidates_->size() - 1;
