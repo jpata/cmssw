@@ -62,6 +62,7 @@ void PFCandConnector::setParameters(bool bCorrect,
 }
 
 reco::PFCandidateCollection PFCandConnector::connect(PFCandidateCollection& pfCand) const {
+  LogTrace("PFCandConnector|connect") << "start of function PFCandConnector::connect";
   /// Collection of primary PFCandidates to be transmitted to the Event
   PFCandidateCollection pfC{};
   /// A mask to define the candidates which shall not be transmitted
@@ -70,7 +71,7 @@ reco::PFCandidateCollection PFCandConnector::connect(PFCandidateCollection& pfCa
 
   // loop on primary
   if (bCorrect_) {
-    LogTrace("PFCandConnector|connect") << "pfCand.size()=" << pfCand.size() << "bCalibPrimary_=" << bCalibPrimary_;
+    LogTrace("PFCandConnector|connect") << "pfCand.size()=" << pfCand.size() << ", bCalibPrimary_=" << bCalibPrimary_;
 
     for (unsigned int ce1 = 0; ce1 < pfCand.size(); ++ce1) {
       if (isPrimaryNucl(pfCand.at(ce1))) {
@@ -141,7 +142,7 @@ reco::PFCandidateCollection PFCandConnector::connect(PFCandidateCollection& pfCa
     if (!bMask[ce1])
       pfC.push_back(pfCand.at(ce1));
 
-  LogTrace("PFCandConnector|connect") << "end of function";
+  LogTrace("PFCandConnector|connect") << "end of function PFCandConnector::connect";
 
   return pfC;
 }

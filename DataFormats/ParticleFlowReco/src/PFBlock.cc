@@ -316,7 +316,25 @@ ostream& reco::operator<<(ostream& out, const reco::PFBlock& block) {
   } else {
     out << "\tno links." << endl;
   }
+  
+  out << endl << "elements=["; 
+  for (unsigned i = 0; i < block.elements().size(); i++) {
+    out << block.elements()[i] << "," << endl;
+  }
+  out << "]" << endl;
 
+  out << endl << "linkData={"; 
+  if (!block.linkData().empty()) {
+    for (unsigned i = 0; i < block.elements().size(); i++) {
+      for (unsigned j = 0; j < block.elements().size(); j++) {
+        double Dist = block.dist(i, j, block.linkData());
+        if (Dist > -0.5) {
+          out << "(" << i << "," << j << "):" << Dist << ", ";
+        }
+      }
+    }
+  }
+  out << "}" << endl;
   return out;
 }
 
