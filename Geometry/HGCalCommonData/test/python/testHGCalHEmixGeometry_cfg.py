@@ -1,6 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 
-process = cms.Process("DDHGCalWafer8Test")
+process = cms.Process("DDHGCalHEmixTest")
 
 process.load('FWCore.MessageService.MessageLogger_cfi')
 process.source = cms.Source("EmptySource")
@@ -13,13 +13,13 @@ if hasattr(process,'MessageLogger'):
     process.MessageLogger.categories.append('HGCalGeom')
 
 process.DDDetectorESProducer = cms.ESSource("DDDetectorESProducer",
-                                            confGeomXMLFiles = cms.FileInPath('Geometry/HGCalCommonData/data/dd4hep/cms-test-ddhgcalwafer-algorithm.xml'),
-                                            appendToDataLabel = cms.string('DDHGCalWafer')
+                                            confGeomXMLFiles = cms.FileInPath('Geometry/HGCalCommonData/data/dd4hep/cms-test-ddhgcalHEmix-algorithm.xml'),
+                                            appendToDataLabel = cms.string('DDHGCalHEmix')
                                             )
 
 process.testDump = cms.EDAnalyzer("DDTestDumpFile",
-                                  outputFileName = cms.untracked.string('hgcalWaferDD4Hep.root'),
-                                  DDDetector = cms.ESInputTag('','DDHGCalWafer')
+                                  outputFileName = cms.untracked.string('hgcalHEmixDD4Hep.root'),
+                                  DDDetector = cms.ESInputTag('','DDHGCalHEmix')
                                   )
 
 process.p = cms.Path(process.testDump)
