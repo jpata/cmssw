@@ -170,7 +170,33 @@ void PFAlgo::reconstructParticles(const reco::PFBlockHandle& blockHandle, PFEGam
   LogTrace("PFAlgo|reconstructParticles")
       << "# Ecal blocks: " << ecalBlockRefs.size() << ", # Hcal blocks: " << hcalBlockRefs.size()
       << ", # HO blocks: " << hoBlockRefs.size() << ", # Other blocks: " << otherBlockRefs.size();
-
+  LogTrace("PFAlgo|reconstructParticles") << "ecalBlocks=[";
+  for (auto blockref : ecalBlockRefs) {
+    const reco::PFBlock& block = *blockref;
+    LogTrace("PFAlgo|reconstructParticles") << block;
+  }
+  LogTrace("PFAlgo|reconstructParticles") << "]";
+  
+  LogTrace("PFAlgo|reconstructParticles") << "hcalBlocks=[";
+  for (auto blockref : hcalBlockRefs) {
+    const reco::PFBlock& block = *blockref;
+    LogTrace("PFAlgo|reconstructParticles") << block;
+  }
+  LogTrace("PFAlgo|reconstructParticles") << "]";
+  
+  LogTrace("PFAlgo|reconstructParticles") << "hoBlocks=[";
+  for (auto blockref : hoBlockRefs) {
+    const reco::PFBlock& block = *blockref;
+    LogTrace("PFAlgo|reconstructParticles") << block;
+  }
+  LogTrace("PFAlgo|reconstructParticles") << "]";
+  
+  LogTrace("PFAlgo|reconstructParticles") << "otherBlocks=[" << endl;
+  for (auto blockref : otherBlockRefs) {
+    const reco::PFBlock& block = *blockref;
+    LogTrace("PFAlgo|reconstructParticles") << block;
+  }
+  LogTrace("PFAlgo|reconstructParticles") << "]";
   // loop on blocks that are not single ecal,
   // and not single hcal.
 
@@ -211,6 +237,15 @@ void PFAlgo::reconstructParticles(const reco::PFBlockHandle& blockHandle, PFEGam
     pfmu_->addMissingMuons(muonHandle_, pfCandidates_.get());
 
   LogTrace("PFAlgo|reconstructParticles") << "end of function PFAlgo::reconstructParticles, pfCandidates_->size()=" << pfCandidates_->size() << endl << endl << endl;
+  LogTrace("PFAlgo|reconstructParticles") << "pfCandidates=[" << endl;
+  for (auto& cand : *(pfCandidates_.get())) {
+    LogTrace("PFAlgo|reconstructParticles") << "{\"pt\":" << cand.pt()
+      << ", \"eta\":" << cand.eta()
+      << ", \"phi\":" << cand.phi()
+      << ", \"pId\":" << cand.particleId()
+      << "}," << endl;
+  }
+  LogTrace("PFAlgo|reconstructParticles") << "]" << endl;
 }
 
 void PFAlgo::egammaFilters(const reco::PFBlockRef& blockref,
