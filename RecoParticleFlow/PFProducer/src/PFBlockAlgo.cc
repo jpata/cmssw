@@ -141,6 +141,7 @@ PFBlockAlgo::~PFBlockAlgo() {
 reco::PFBlockCollection PFBlockAlgo::findBlocks() {
   // Glowinski & Gouzevitch
   for (const auto& kdtree : kdtrees_) {
+    std::cout << "kdtree::process" << std::endl;
     kdtree->process();
   }
   // !Glowinski & Gouzevitch
@@ -243,10 +244,7 @@ void PFBlockAlgo::packLinks(reco::PFBlock& block,
       }
 
       if (!linked) {
-        const PFBlockElement::Type type1 = els[i1].type();
-        const PFBlockElement::Type type2 = els[i2].type();
-        const auto minmax = std::minmax(type1, type2);
-        const unsigned index = rowsize * minmax.second + minmax.first;
+        const auto index = getIndex(&els[i1], &els[i2]);
         bool bTestLink =
             (nullptr == linkTests_[index] ? false : linkTests_[index]->linkPrefilter(&(els[i1]), &(els[i2])));
         if (bTestLink)
@@ -260,17 +258,17 @@ void PFBlockAlgo::packLinks(reco::PFBlock& block,
   }
 }
 
-inline void PFBlockAlgo::link(const reco::PFBlockElement* el1, const reco::PFBlockElement* el2, double& dist) const {
+unsigned PFBlockAlgo::getIndex(const reco::PFBlockElement* el1, const reco::PFBlockElement* el2) const {
   constexpr unsigned rowsize = reco::PFBlockElement::kNBETypes;
-  dist = -1.0;
   const PFBlockElement::Type type1 = el1->type();
   const PFBlockElement::Type type2 = el2->type();
-  const unsigned index = rowsize * std::max(type1, type2) + std::min(type1, type2);
-  if (debug_) {
-    std::cout << " PFBlockAlgo links type1 " << type1 << " type2 " << type2 << std::endl;
-  }
+  const auto minmax = std::minmax(type1, type2);
+  const unsigned index = rowsize * minmax.second + minmax.first;
+  return index;
+}
 
-  // index is always checked in the preFilter above, no need to check here
+inline void PFBlockAlgo::link(const reco::PFBlockElement* el1, const reco::PFBlockElement* el2, double& dist) const {
+  const auto index = getIndex(el1, el2);
   dist = linkTests_[index]->testLink(el1, el2);
 }
 
@@ -339,6 +337,46 @@ std::ostream& operator<<(std::ostream& out, const PFBlockAlgo& a) {
 
   return out;
 }
+
+//A tile grid is responsible for finding the tiles that correspond to coordinates
+reco::PFBlockCollection PFBlockAlgo::findBlocksCLUE() const {
+  reco::PFBlockCollection blocks;
+  blocks.reserve(elements_.size());
+
+  const vector<vector<ElementOnLayer>> layers = buildLayers(elements_);
+ 
+  for (auto layer : layers) {
+    TileGrid tiles = buildTileGrid(layer);
+    calculateLocalDensity(layer, tiles);
+    calculateDistanceToHigher(layer, tiles);
+    //findAndAssignClusters();
+  }
+  //connectClusters();
+  //createBlocks();
+  return blocks;
+}
+
+vector<vector<ElementOnLayer>> PFBlockAlgo::buildLayers(const ElementList& elements_) const {
+  vector<vector<ElementOnLayer>> ret;
+  return ret;
+}
+
+TileGrid PFBlockAlgo::buildTileGrid(const vector<ElementOnLayer>& layer) const {
+  TileGrid ret;
+  return ret;
+}
+
+void PFBlockAlgo::calculateLocalDensity(vector<ElementOnLayer>& elements, const TileGrid& tiles) const {
+}
+
+void PFBlockAlgo::calculateDistanceToHigher(vector<ElementOnLayer>& elements, const TileGrid& tiles) const {
+
+  double d;
+  size_t i1 = 0;
+  size_t i2 = 1;
+  link(elements_[i1].get(), elements_[i2].get(), d);
+}
+
 
 // a little history, ideas we may want to keep around for later
 /*
