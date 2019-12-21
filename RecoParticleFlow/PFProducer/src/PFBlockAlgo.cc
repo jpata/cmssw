@@ -4,6 +4,8 @@
 #include "FWCore/MessageLogger/interface/ErrorObj.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescriptionFiller.h"
 #include "FWCore/PluginManager/interface/PluginFactory.h"
+#include "DataFormats/ParticleFlowReco/interface/PFCluster.h"
+#include "DataFormats/ParticleFlowReco/interface/PFBlockElementCluster.h"
 
 #include <algorithm>
 #include <iostream>
@@ -343,7 +345,8 @@ reco::PFBlockCollection PFBlockAlgo::findBlocksCLUE() const {
   reco::PFBlockCollection blocks;
   blocks.reserve(elements_.size());
 
-  const vector<vector<ElementOnLayer>> layers = buildLayers(elements_);
+  //Group the PF elements by layer 
+  const vector<Layer> layers = buildLayers(elements_);
  
   for (auto layer : layers) {
     TileGrid tiles = buildTileGrid(layer);
@@ -351,25 +354,103 @@ reco::PFBlockCollection PFBlockAlgo::findBlocksCLUE() const {
     calculateDistanceToHigher(layer, tiles);
     //findAndAssignClusters();
   }
-  //connectClusters();
-  //createBlocks();
+  //connectClustersAcrossLayers();
+  //createBlocksFromClusters();
   return blocks;
 }
 
-vector<vector<ElementOnLayer>> PFBlockAlgo::buildLayers(const ElementList& elements_) const {
-  vector<vector<ElementOnLayer>> ret;
-  return ret;
+void addTrackElement(const std::unique_ptr<reco::PFBlockElement>& el, unsigned int iel, Layer& layer_tracker, Layer& layer_ecal, Layer& layer_hcal) {
+    const auto* trk = el->trackRef().get();
+    const auto* trk_pf = el->trackRefPF().get();
+
+    //Track position on the tracker surface
+    auto el_layer = ElementOnLayer(iel, 0, trk->momentum().eta(), trk->momentum().phi());
+    layer_tracker.elements.push_back(el_layer);
+   
+    //Track position in ECAL
+    const auto atECAL = trk_pf->extrapolatedPoint(reco::PFTrajectoryPoint::ECALShowerMax);
+    if (atECAL.isValid()) {
+      auto el_layer = ElementOnLayer(iel, 1, atECAL.positionREP().eta(), atECAL.positionREP().phi());
+      layer_ecal.elements.push_back(el_layer);
+    }  
+    
+    //Track position in HCAL
+    const auto atHCAL = trk_pf->extrapolatedPoint(reco::PFTrajectoryPoint::HCALEntrance);
+    if (atHCAL.isValid()) {
+      auto el_layer = ElementOnLayer(iel, 2, atHCAL.positionREP().eta(), atHCAL.positionREP().phi());
+      layer_hcal.elements.push_back(el_layer);
+    }  
 }
 
-TileGrid PFBlockAlgo::buildTileGrid(const vector<ElementOnLayer>& layer) const {
-  TileGrid ret;
-  return ret;
+vector<Layer> PFBlockAlgo::buildLayers(const ElementList& elements_) const {
+  vector<Layer> layers;
+  Layer layer_tracker;
+  Layer layer_ecal;
+  Layer layer_hcal;
+  Layer layer_hf;
+
+  for (unsigned int iel = 0; iel < elements_.size(); iel++) {
+    const auto& el = elements_.at(iel);
+
+    const auto type = el->type();
+    if (type == PFBlockElement::TRACK) {
+        addTrackElement(el, iel, layer_tracker, layer_ecal, layer_hcal);
+    }
+    else if (type == PFBlockElement::ECAL ||
+             type == PFBlockElement::PS1 || 
+             type == PFBlockElement::PS2 ||
+             type == PFBlockElement::GSF) {
+        if (el.get()->clusterRef().isNonnull()) {
+            const reco::PFCluster* cl = el.get()->clusterRef().get();  
+            auto el_layer = ElementOnLayer(iel, 2, cl->eta(), cl->phi());
+            layer_ecal.elements.push_back(el_layer);
+        }
+    }
+    else if (type == PFBlockElement::HCAL) {
+        if (el.get()->clusterRef().isNonnull()) {
+            const reco::PFCluster* cl = el.get()->clusterRef().get();  
+            auto el_layer = ElementOnLayer(iel, 3, cl->eta(), cl->phi());
+            layer_hcal.elements.push_back(el_layer);
+        }
+    }
+    else if (type == PFBlockElement::HO ||
+             type == PFBlockElement::HFHAD || 
+             type == PFBlockElement::HFEM) {
+        if (el.get()->clusterRef().isNonnull()) {
+            const reco::PFCluster* cl = el.get()->clusterRef().get();  
+            auto el_layer = ElementOnLayer(iel, 4, cl->eta(), cl->phi());
+            layer_hf.elements.push_back(el_layer);
+        }
+    } else {
+      cout << "Element type " << type << endl;
+    }
+  }
+
+  layers.push_back(layer_tracker);
+  layers.push_back(layer_ecal);
+  layers.push_back(layer_hcal);
+  layers.push_back(layer_hf);
+
+  cout << "L0=" << layers[0].elements.size() << endl;
+  cout << "L1=" << layers[1].elements.size() << endl;
+  cout << "L2=" << layers[2].elements.size() << endl;
+  cout << "L3=" << layers[3].elements.size() << endl;
+  return layers;
 }
 
-void PFBlockAlgo::calculateLocalDensity(vector<ElementOnLayer>& elements, const TileGrid& tiles) const {
+TileGrid PFBlockAlgo::buildTileGrid(const Layer& layer) const {
+  TileGrid tg;
+  return tg;
 }
 
-void PFBlockAlgo::calculateDistanceToHigher(vector<ElementOnLayer>& elements, const TileGrid& tiles) const {
+void PFBlockAlgo::calculateLocalDensity(Layer& layer, const TileGrid& tiles) const {
+  for (unsigned int iel = 0; iel < layer.elements.size(); iel++) {
+    auto& el = layer.elements.at(iel);
+    el.density = 1.0;
+  }
+}
+
+void PFBlockAlgo::calculateDistanceToHigher(Layer& elements, const TileGrid& tiles) const {
 
   double d;
   size_t i1 = 0;

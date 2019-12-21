@@ -60,6 +60,7 @@ void PFBlockProducer::beginLuminosityBlock(edm::LuminosityBlock const& lb, edm::
 void PFBlockProducer::produce(Event& iEvent, const EventSetup& iSetup) {
   pfBlockAlgo_.buildElements(iEvent);
 
+  auto blocks_clue = pfBlockAlgo_.findBlocksCLUE();
   auto blocks = pfBlockAlgo_.findBlocks();
 
   if (verbose_) {

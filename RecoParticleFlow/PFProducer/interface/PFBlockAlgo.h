@@ -35,14 +35,24 @@ namespace std {
 //An element has a local density value
 class ElementOnLayer {
 public:
+  ElementOnLayer(int element_index_, float eta_, float phi_, int layer_id_) :
+    element_index(element_index_),
+    layer_id(layer_id_),
+    eta(eta_),
+    phi(phi_),
+    density(0.0),
+    distance_to_higher(0.0),
+    cluster_id(-1) {
+  }
+
   //index to the full element array
   int element_index;
   
-  //coordinates of the element on this layer
-  float eta, phi;
-
   //which layer is it (ECAL, HCAL, HF, Tracker, ...)
   int layer_id;
+  
+  //coordinates of the element on this layer
+  float eta, phi;
 
   //local density
   float density;
@@ -52,6 +62,13 @@ public:
 
   //output cluster ID within the layer
   int cluster_id;
+};
+
+class Layer {
+public:
+  Layer() : elements({}) {
+  }
+  std::vector<ElementOnLayer> elements;
 };
 
 //A tile contains multiple detector elements
@@ -116,16 +133,16 @@ public:
   reco::PFBlockCollection findBlocksCLUE() const;
 
   //Separate the individual elements per detector layer
-  std::vector<std::vector<ElementOnLayer>> buildLayers(const ElementList& elements_) const;
+  std::vector<Layer> buildLayers(const ElementList& elements_) const;
 
   //Builds the tiles from the elements on one layer
-  TileGrid buildTileGrid(const std::vector<ElementOnLayer>& layer) const;
+  TileGrid buildTileGrid(const Layer& layer) const;
 
   //Updates the local density of all the elements in the layer
-  void calculateLocalDensity(std::vector<ElementOnLayer>& elements, const TileGrid& tiles) const;
+  void calculateLocalDensity(Layer& elements, const TileGrid& tiles) const;
 
   //Updates the distance value to the nearest element with a higher density
-  void calculateDistanceToHigher(std::vector<ElementOnLayer>& elements, const TileGrid& tiles) const;
+  void calculateDistanceToHigher(Layer& layer, const TileGrid& tiles) const;
 
 private:
   /// compute missing links in the blocks
