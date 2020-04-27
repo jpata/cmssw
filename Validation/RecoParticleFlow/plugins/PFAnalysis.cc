@@ -110,8 +110,7 @@ vector<int> find_element_ref(const vector<ElementWithIndex>& vec, const edm::Ref
 }
 
 double detid_compare(const map<uint64_t, double>& rechits,
-                     const map<uint64_t, double>& simhits,
-                     ) {
+                     const map<uint64_t, double>& simhits) {
   double ret = 0.0;
 
   for (const auto& rh : rechits) {
