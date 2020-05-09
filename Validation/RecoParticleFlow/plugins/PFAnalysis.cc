@@ -261,6 +261,8 @@ private:
   vector<int> element_layer_;
   vector<float> element_depth_;
   vector<float> element_trajpoint_;
+  vector<float> element_muon_dt_hits_;
+  vector<float> element_muon_csc_hits_;
 
   vector<int> element_distance_i_;
   vector<int> element_distance_j_;
@@ -289,6 +291,8 @@ private:
   CaloGeometry* geom;
   HcalTopology* hcal_topo;
   const HcalDDDRecConstants* hcons;
+
+  bool saveHits;
 };
 
 PFAnalysis::PFAnalysis() { ; }
@@ -301,6 +305,7 @@ PFAnalysis::PFAnalysis(const edm::ParameterSet& iConfig) {
   pfBlocks_ = consumes<std::vector<reco::PFBlock>>(edm::InputTag("particleFlowBlock"));
   pfCandidates_ = consumes<std::vector<reco::PFCandidate>>(edm::InputTag("particleFlow"));
   tracks_ = consumes<edm::View<reco::Track>>(edm::InputTag("generalTracks"));
+  saveHits = iConfig.getUntrackedParameter<bool>("saveHits", false);
 
   geometryToken_ = esConsumes<CaloGeometry, CaloGeometryRecord>(edm::ESInputTag{});
   topologyToken_ = esConsumes<HcalTopology, HcalRecNumberingRecord>(edm::ESInputTag{});
@@ -343,27 +348,29 @@ PFAnalysis::PFAnalysis(const edm::ParameterSet& iConfig) {
   t_->Branch("simcluster_idx_trackingparticle", &simcluster_idx_trackingparticle_);
   t_->Branch("simcluster_nhits", &simcluster_nhits_);
 
-  t_->Branch("simhit_frac", &simhit_frac_);
-  t_->Branch("simhit_x", &simhit_x_);
-  t_->Branch("simhit_y", &simhit_y_);
-  t_->Branch("simhit_z", &simhit_z_);
-  t_->Branch("simhit_det", &simhit_det_);
-  t_->Branch("simhit_subdet", &simhit_subdet_);
-  t_->Branch("simhit_eta", &simhit_eta_);
-  t_->Branch("simhit_phi", &simhit_phi_);
-  t_->Branch("simhit_idx_simcluster", &simhit_idx_simcluster_);
-  t_->Branch("simhit_detid", &simhit_detid_);
+  if (saveHits) {
+    t_->Branch("simhit_frac", &simhit_frac_);
+    t_->Branch("simhit_x", &simhit_x_);
+    t_->Branch("simhit_y", &simhit_y_);
+    t_->Branch("simhit_z", &simhit_z_);
+    t_->Branch("simhit_det", &simhit_det_);
+    t_->Branch("simhit_subdet", &simhit_subdet_);
+    t_->Branch("simhit_eta", &simhit_eta_);
+    t_->Branch("simhit_phi", &simhit_phi_);
+    t_->Branch("simhit_idx_simcluster", &simhit_idx_simcluster_);
+    t_->Branch("simhit_detid", &simhit_detid_);
 
-  t_->Branch("rechit_e", &rechit_e_);
-  t_->Branch("rechit_x", &rechit_x_);
-  t_->Branch("rechit_y", &rechit_y_);
-  t_->Branch("rechit_z", &rechit_z_);
-  t_->Branch("rechit_det", &rechit_det_);
-  t_->Branch("rechit_subdet", &rechit_subdet_);
-  t_->Branch("rechit_eta", &rechit_eta_);
-  t_->Branch("rechit_phi", &rechit_phi_);
-  t_->Branch("rechit_idx_element", &rechit_idx_element_);
-  t_->Branch("rechit_detid", &rechit_detid_);
+    t_->Branch("rechit_e", &rechit_e_);
+    t_->Branch("rechit_x", &rechit_x_);
+    t_->Branch("rechit_y", &rechit_y_);
+    t_->Branch("rechit_z", &rechit_z_);
+    t_->Branch("rechit_det", &rechit_det_);
+    t_->Branch("rechit_subdet", &rechit_subdet_);
+    t_->Branch("rechit_eta", &rechit_eta_);
+    t_->Branch("rechit_phi", &rechit_phi_);
+    t_->Branch("rechit_idx_element", &rechit_idx_element_);
+    t_->Branch("rechit_detid", &rechit_detid_);
+  }
 
   t_->Branch("simtrack_x", &simtrack_x_);
   t_->Branch("simtrack_y", &simtrack_y_);
@@ -402,6 +409,8 @@ PFAnalysis::PFAnalysis(const edm::ParameterSet& iConfig) {
   t_->Branch("element_layer", &element_layer_);
   t_->Branch("element_depth", &element_depth_);
   t_->Branch("element_trajpoint", &element_trajpoint_);
+  t_->Branch("element_muon_dt_hits", &element_muon_dt_hits_);
+  t_->Branch("element_muon_csc_hits", &element_muon_csc_hits_);
 
   //Distance matrix between PF elements
   t_->Branch("element_distance_i", &element_distance_i_);
@@ -470,27 +479,29 @@ void PFAnalysis::clearVariables() {
   simcluster_idx_trackingparticle_.clear();
   simcluster_nhits_.clear();
 
-  simhit_frac_.clear();
-  simhit_x_.clear();
-  simhit_y_.clear();
-  simhit_z_.clear();
-  simhit_det_.clear();
-  simhit_subdet_.clear();
-  simhit_eta_.clear();
-  simhit_phi_.clear();
-  simhit_idx_simcluster_.clear();
-  simhit_detid_.clear();
+  if (saveHits) {
+    simhit_frac_.clear();
+    simhit_x_.clear();
+    simhit_y_.clear();
+    simhit_z_.clear();
+    simhit_det_.clear();
+    simhit_subdet_.clear();
+    simhit_eta_.clear();
+    simhit_phi_.clear();
+    simhit_idx_simcluster_.clear();
+    simhit_detid_.clear();
 
-  rechit_e_.clear();
-  rechit_x_.clear();
-  rechit_y_.clear();
-  rechit_z_.clear();
-  rechit_det_.clear();
-  rechit_subdet_.clear();
-  rechit_eta_.clear();
-  rechit_phi_.clear();
-  rechit_idx_element_.clear();
-  rechit_detid_.clear();
+    rechit_e_.clear();
+    rechit_x_.clear();
+    rechit_y_.clear();
+    rechit_z_.clear();
+    rechit_det_.clear();
+    rechit_subdet_.clear();
+    rechit_eta_.clear();
+    rechit_phi_.clear();
+    rechit_idx_element_.clear();
+    rechit_detid_.clear();
+  }
 
   simtrack_x_.clear();
   simtrack_y_.clear();
@@ -528,6 +539,8 @@ void PFAnalysis::clearVariables() {
   element_layer_.clear();
   element_depth_.clear();
   element_trajpoint_.clear();
+  element_muon_dt_hits_.clear();
+  element_muon_csc_hits_.clear();
 
   element_distance_i_.clear();
   element_distance_j_.clear();
@@ -763,6 +776,8 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     int charge = 0;
     int layer = 0;
     float depth = 0;
+    float muon_dt_hits  = 0.0;
+    float muon_csc_hits  = 0.0;
 
     if (type == reco::PFBlockElement::TRACK) {
       const auto& matched_pftrack = orig.trackRefPF();
@@ -787,22 +802,31 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       phi = ref->phi();
       energy = ref->pt() * cosh(ref->eta());
       charge = ref->charge();
+
+      reco::MuonRef muonRef = orig.muonRef();
+      if (muonRef.isNonnull()) {
+        reco::TrackRef standAloneMu = muonRef->standAloneMuon();
+        if (standAloneMu.isNonnull()) {
+          muon_dt_hits = standAloneMu->hitPattern().numberOfValidMuonDTHits();
+          muon_csc_hits = standAloneMu->hitPattern().numberOfValidMuonCSCHits();
+        }
+      }
+
     } else if (type == reco::PFBlockElement::BREM) {
-      //requires to keep GsfPFRecTracks
       const auto* orig2 = (const reco::PFBlockElementBrem*)&orig;
       const auto& ref = orig2->GsftrackRef();
       if (ref.isNonnull()) {
         deltap = orig2->DeltaP();
         sigmadeltap = orig2->SigmaDeltaP();
-        //pt = ref->pt();
-        //px = ref->px();
-        //py = ref->py();
-        //pz = ref->pz();
-        //eta = ref->eta();
-        //phi = ref->phi();
-        //energy = ref->pt() * cosh(ref->eta());
+        pt = ref->pt();
+        px = ref->px();
+        py = ref->py();
+        pz = ref->pz();
+        eta = ref->eta();
+        phi = ref->phi();
+        energy = ref->pt() * cosh(ref->eta());
         trajpoint = orig2->indTrajPoint();
-        //charge = ref->charge();
+        charge = ref->charge();
       }
     } else if (type == reco::PFBlockElement::GSF) {
       //requires to keep GsfPFRecTracks
@@ -814,6 +838,9 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       eta = orig2->Pin().eta();
       phi = orig2->Pin().phi();
       energy = pt * cosh(eta);
+      if (!orig2->GsftrackRefPF().isNull()) {
+        charge = orig2->GsftrackRefPF()->charge();
+      }
     } else if (type == reco::PFBlockElement::ECAL || type == reco::PFBlockElement::PS1 ||
                type == reco::PFBlockElement::PS2 || type == reco::PFBlockElement::HCAL ||
                type == reco::PFBlockElement::HO ||
@@ -871,6 +898,8 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     element_layer_.push_back(layer);
     element_depth_.push_back(depth);
     element_trajpoint_.push_back(trajpoint);
+    element_muon_dt_hits_.push_back(muon_dt_hits);
+    element_muon_csc_hits_.push_back(muon_csc_hits);
   }
 
   //associate candidates to elements
@@ -980,8 +1009,6 @@ pair<vector<ElementWithIndex>, vector<tuple<int, int, float>>> PFAnalysis::proce
       const auto vecidx = link.first;
       const auto dist = link.second.distance;
       const auto& ij = get_triu_vector_index(vecidx, block.elements().size());
-      cout << "block " << iblock << " " << ielem << " " << vecidx << " " << ij.first << " " << ij.second << " " << dist
-           << endl;
       auto globalindex_i = ij.first + ret.size();
       auto globalindex_j = ij.second + ret.size();
       distances.push_back(make_tuple(globalindex_i, globalindex_j, dist));
