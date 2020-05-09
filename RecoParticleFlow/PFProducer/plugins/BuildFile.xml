@@ -87,5 +87,6 @@
   <use   name="RecoParticleFlow/PFTracking"/>
   <use   name="RecoEcal/EgammaCoreTools"/>
   <use   name="Geometry/CaloTopology"/>  
+  <use name="PhysicsTools/TensorFlow"/>
   <flags   EDM_PLUGIN="1"/>
 </library>
