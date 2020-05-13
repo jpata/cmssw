@@ -15,13 +15,32 @@
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
 
 #include "TLorentzVector.h"
+#include "TStopwatch.h"
 
+//The model takes the following number of features for each input PFElement
 static const unsigned int NUM_ELEMENT_FEATURES = 15;
 
+//The model has 13 outputs for each particle, which consist of:
+
+//class_probabilities_logits [NUM_CLASS]
+//eta
+//phi
+//energy
+//charge
+//placeholder
+static const unsigned int NUM_CLASS = 8;
+static const unsigned int IDX_ETA = 9;
+static const unsigned int IDX_PHI = 10;
+static const unsigned int IDX_ENERGY = 11;
+static const unsigned int IDX_CHARGE = 12;
+
+
 //index [0, N_pdgids) -> PDGID
+//this maps the absolute values of the predictable PDGIDs to an array of ascending indices
 static const std::vector<int> pdgid_encoding = {0, 1, 2, 11, 13, 22, 130, 211};
 
 //PFElement::type -> index [0, N_types)
+//this maps the type of the PFElement to an ascending index that is used by the model to distinguish between different elements
 static const std::map<int, int> elem_type_encoding = {
   {1, 0},
   {2, 1},
@@ -40,6 +59,7 @@ struct MLPFCache {
   std::atomic<tensorflow::GraphDef*> graph_def;
 };
 
+//Prepares the input array of floats for a single PFElement 
 std::array<float, NUM_ELEMENT_FEATURES> get_element_properties(const reco::PFBlockElement& orig) {
   const auto type = orig.type();
   float pt = 0.0;
@@ -177,6 +197,7 @@ private:
   const edm::EDGetTokenT<reco::PFBlockCollection> inputTagBlocks_;
   const std::string model_path_;
   tensorflow::Session* session_;
+  TStopwatch sw;
 };
 
 MLPFProducer::MLPFProducer(const edm::ParameterSet& cfg, const MLPFCache* cache) :
@@ -186,80 +207,109 @@ MLPFProducer::MLPFProducer(const edm::ParameterSet& cfg, const MLPFCache* cache)
     session_ = tensorflow::createSession(cache->graph_def);
 }
 
-
+//returns the argmax of a given std::vector<T>
 template <typename T, typename A>
 int arg_max(std::vector<T, A> const& vec) {
   return static_cast<int>(std::distance(vec.begin(), max_element(vec.begin(), vec.end())));
 }
 
 void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
+  sw.Reset();
+  double total_time = 0.0;
+
   auto blocks_handle = event.getHandle(inputTagBlocks_);
   const auto& blocks = *blocks_handle;
   std::vector<reco::PFCandidate> pOutputCandidateCollection;
 
-  //Put all PFElements into the input tensor
+  //create element chunks of at least 500 
+  std::vector<std::vector<const reco::PFBlockElement*>> element_chunks;
+  std::vector<const reco::PFBlockElement*> element_chunk; 
   for (const auto& block : blocks) {
     const auto& elems = block.elements();
     unsigned int num_elems = elems.size();
-    if (num_elems > 1) {
-      std::cout << "num_elems=" << num_elems << std::endl;
+    if (element_chunk.size () > 500) {
+      element_chunks.push_back(element_chunk);
+      element_chunk.clear();
     }
+    for (const auto& elem : elems) {
+      element_chunk.push_back(&elem);
+    }
+  }
+  //last chunk
+  element_chunks.push_back(element_chunk);
+  element_chunk.clear();
+    
+  //Right now, we process each PFBlock separately. This is a simplification that limits
+  //the total input size of the model, aimed to be similar to the
+  //original PFAlgo implementation. In general, we want to feed around a few thousand input PFElements
+  //simultaneously to the MLPF graph network model.
+  for (const auto& element_chunk : element_chunks) {
+    sw.Start();
+    unsigned int num_elems = element_chunk.size();
 
+    //Create the input tensor
     tensorflow::TensorShape shape({num_elems, NUM_ELEMENT_FEATURES});
     tensorflow::Tensor input(tensorflow::DT_FLOAT, shape);
     input.flat<float>().setZero();
 
-    //create input array from PFElements
+    //Put all PFElements in this PFBlock into the input tensor.
     unsigned int ielem = 0;
-    for (const auto& elem : elems) {
+    for (const auto* pelem : element_chunk) {
+      const auto& elem = *pelem;
       const auto& props = get_element_properties(elem);
       for (unsigned int iprop=0; iprop<NUM_ELEMENT_FEATURES; iprop++) {
         input.tensor<float, 2>()(ielem, iprop) = props[iprop];
       }
       ielem += 1; 
     }
-
     tensorflow::NamedTensorList input_list = {{"x:0", input}};
+
+    //Prepare the output tensor
     std::vector<tensorflow::Tensor> outputs;
     std::vector<std::string> output_names = {"Identity:0"};
 
-    //run the GNN inference
+    //run the GNN inference, given the inputs and the output.
+    //Note that the GNN enables information transfer between the input PFElements,
+    //such that the output ML-PFCandidates are in general combinations of the input PFElements, in the form of
+    //y_out = Adj.x_in, where x_in is input matrix (num_elem, NUM_ELEMENT_FEATURES), y_out is the output matrix (num_elem, NUM_OUTPUT_FEATURES)
+    //and Adj is an adjacency matrix between the elements that is constructed on the fly during model inference.
     tensorflow::run(session_, input_list, output_names, &outputs);
 
-    //process the outputs
+    //process the output tensor to ML-PFCandidates.
+    //The output can contain up to num_elem particles, with predicted PDGID=0 corresponding to no particles predicted.
     const auto out_arr = outputs[0].tensor<float, 2>();
-    for (unsigned int ielem=0; ielem<num_elems; ielem++) {
+    for (unsigned int ielem=0; ielem < num_elems; ielem++) {
 
       //get the coefficients in the output corresponding to the class probabilities (raw logits) 
       std::vector<float> pred_id_logits;
-      for (unsigned int idx_id=0; idx_id<8; idx_id++) {
+      for (unsigned int idx_id=0; idx_id<NUM_CLASS; idx_id++) {
         pred_id_logits.push_back(out_arr(ielem, idx_id));
       }
       //get the most probable class PDGID
       int pred_pid = pdgid_encoding.at(arg_max(pred_id_logits));
 
       //get the predicted momentum components
-      float pred_eta = out_arr(ielem, 8);
-      float pred_phi = out_arr(ielem, 9);
-      float pred_e = out_arr(ielem, 10);
+      float pred_eta = out_arr(ielem, IDX_ETA);
+      float pred_phi = out_arr(ielem, IDX_PHI);
+      pred_phi = TMath::ATan2(TMath::Sin(pred_phi), TMath::Cos(pred_phi));
+      float pred_e = out_arr(ielem, IDX_ENERGY);
 
-      //massless approximation
+      //currently, set the pT from a massless approximation.
+      //later versions of the model can predict predict both the energy and pT of the particle
       float pred_pt = pred_e / TMath::CosH(pred_eta);
 
-      float pred_charge = out_arr(ielem, 11);
+      float pred_charge = out_arr(ielem, IDX_CHARGE);
 
-      std::cout << elems[ielem] << std::endl;
+      //std::cout << elems[ielem] << std::endl;
+
       //a particle was predicted for this PFElement
       if (pred_pid != 0) {
 
+        //set the charge to +1 or -1 for PFCandidates that are charged, according to the sign of the predicted charge
         reco::PFCandidate::Charge charge = 0;
         if (pred_pid == 11 || pred_pid == 13 || pred_pid == 211) {
             charge = pred_charge > 0 ? +1 : -1;
         }
-
-        std::cout << "MLPFCandidate " <<
-           " pid=" << pred_pid << " pt=" << pred_pt << " eta=" << pred_eta << " phi=" << pred_phi << " e=" << pred_e <<
-           " charge=" << charge << std::endl;
 
         TLorentzVector p4;
         p4.SetPtEtaPhiE(pred_pt, pred_eta, pred_phi, pred_e);
@@ -268,12 +318,18 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
         cand.setParticleType(cand.translatePdgIdToType(pred_pid));
         cand.setCharge(charge);
         pOutputCandidateCollection.push_back(cand);
+
       } else {
         //this element did not directly yield a particle, but could have been used indirectly for other ML-PFCandidates
       }
-    }
+    } //loop over PFElements
 
-  }
+    sw.Stop();
+    total_time += sw.CpuTime();
+    std::cout << "num_elems=" << num_elems << " cputime=" << sw.CpuTime() << std::endl;
+
+  } //loop over PFBlocks
+  std::cout << "total_time=" << total_time << std::endl;
 
   event.emplace(pfCandidatesToken_, pOutputCandidateCollection);
 }
@@ -282,6 +338,7 @@ std::unique_ptr<MLPFCache> MLPFProducer::initializeGlobalCache(const edm::Parame
   // this method is supposed to create, initialize and return a MLPFCache instance
   std::unique_ptr<MLPFCache> cache = std::make_unique<MLPFCache>();
 
+  //load the frozen TF graph of the GNN model
   std::string path = params.getParameter<std::string>("model_path");
   auto fullPath = edm::FileInPath(path).fullPath();
   cache->graph_def = tensorflow::loadGraphDef(fullPath);
@@ -296,9 +353,6 @@ void MLPFProducer::globalEndJob(MLPFCache* cache) {
 void MLPFProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("src", edm::InputTag("particleFlowBlock"));
-  //desc.add<bool>("ignore_leptons", false);
-  //desc.add<double>("norm_factor", 50.);
-  //desc.add<unsigned int>("max_n_pf", 4500);
   desc.add<std::string>("model_path", "RecoParticleFlow/PFProducer/data/mlpf/mlpf_2020_05_07.pb");
   descriptions.add("MLPFProducer", desc);
 }
