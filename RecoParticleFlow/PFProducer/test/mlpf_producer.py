@@ -24,7 +24,8 @@ process.source = cms.Source("PoolSource",
 
 process.mlpfproducer = cms.EDProducer("MLPFProducer",
     src=cms.InputTag("particleFlowBlock"),
-    model_path=cms.string("RecoParticleFlow/PFProducer/data/mlpf/mlpf_2020_05_12.pb")
+    min_batch_size=cms.uint32(1000),
+    model_path=cms.string("RecoParticleFlow/PFProducer/data/mlpf/mlpf_2020_05_19.pb")
 ) 
 
 process.sequence = cms.Sequence(process.mlpfproducer)

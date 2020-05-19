@@ -63,6 +63,7 @@ struct MLPFCache {
 std::array<float, NUM_ELEMENT_FEATURES> get_element_properties(const reco::PFBlockElement& orig) {
   const auto type = orig.type();
   float pt = 0.0;
+  //these are placeholders for the the future
   [[maybe_unused]] float deltap = 0.0;
   [[maybe_unused]] float sigmadeltap = 0.0;
   [[maybe_unused]] float px = 0.0;
@@ -195,6 +196,7 @@ public:
 private:
   const edm::EDPutTokenT<reco::PFCandidateCollection> pfCandidatesToken_;
   const edm::EDGetTokenT<reco::PFBlockCollection> inputTagBlocks_;
+  const unsigned int min_batch_size_;
   const std::string model_path_;
   tensorflow::Session* session_;
   TStopwatch sw;
@@ -203,6 +205,7 @@ private:
 MLPFProducer::MLPFProducer(const edm::ParameterSet& cfg, const MLPFCache* cache) :
   pfCandidatesToken_{produces<reco::PFCandidateCollection>()},
   inputTagBlocks_(consumes<reco::PFBlockCollection>(cfg.getParameter<edm::InputTag>("src"))),
+  min_batch_size_(cfg.getParameter<unsigned int>("min_batch_size")),
   model_path_(cfg.getParameter<std::string>("model_path")) {
     session_ = tensorflow::createSession(cache->graph_def);
 }
@@ -215,90 +218,106 @@ int arg_max(std::vector<T, A> const& vec) {
 
 void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
   sw.Reset();
-  double total_time = 0.0;
 
   auto blocks_handle = event.getHandle(inputTagBlocks_);
   const auto& blocks = *blocks_handle;
   std::vector<reco::PFCandidate> pOutputCandidateCollection;
 
-  //create element chunks of at least 500 
-  std::vector<std::vector<const reco::PFBlockElement*>> element_chunks;
-  std::vector<const reco::PFBlockElement*> element_chunk; 
+  //Create input batches from PFElements in the event.
+  //Elements can only pass information to each other within the same batch,
+  //similar to how PFAlgo processes each PFBlock independently.
+  std::vector<std::vector<const reco::PFBlockElement*>> element_batches;
+  std::vector<const reco::PFBlockElement*> element_batch;
   for (const auto& block : blocks) {
     const auto& elems = block.elements();
-    unsigned int num_elems = elems.size();
-    if (element_chunk.size () > 500) {
-      element_chunks.push_back(element_chunk);
-      element_chunk.clear();
+    if (element_batch.size () > min_batch_size_) {
+      element_batches.push_back(element_batch);
+      element_batch.clear();
     }
     for (const auto& elem : elems) {
-      element_chunk.push_back(&elem);
+      element_batch.push_back(&elem);
     }
   }
   //last chunk
-  element_chunks.push_back(element_chunk);
-  element_chunk.clear();
-    
-  //Right now, we process each PFBlock separately. This is a simplification that limits
-  //the total input size of the model, aimed to be similar to the
-  //original PFAlgo implementation. In general, we want to feed around a few thousand input PFElements
-  //simultaneously to the MLPF graph network model.
-  for (const auto& element_chunk : element_chunks) {
-    sw.Start();
-    unsigned int num_elems = element_chunk.size();
+  element_batches.push_back(element_batch);
+  element_batch.clear();
 
-    //Create the input tensor
-    tensorflow::TensorShape shape({num_elems, NUM_ELEMENT_FEATURES});
-    tensorflow::Tensor input(tensorflow::DT_FLOAT, shape);
-    input.flat<float>().setZero();
+  //get the maximum number of elements for all the batches
+  unsigned int num_max_elems_batch = 0;
+  unsigned int num_elements_total = 0; 
+  std::cout << "num_batches=" << element_batches.size();
+  for (const auto& element_batch : element_batches) {
+    if (element_batch.size() > num_max_elems_batch) {
+      num_max_elems_batch = element_batch.size();
+    }
+    std::cout << " " << element_batch.size();
+    num_elements_total += element_batch.size();
+  }
+  std::cout << " num_max_elems_batch=" << num_max_elems_batch << std::endl;
+
+  const unsigned int num_batches = element_batches.size();
+
+  //Create the input tensor
+  tensorflow::TensorShape shape({num_batches, num_max_elems_batch, NUM_ELEMENT_FEATURES});
+  tensorflow::Tensor input(tensorflow::DT_FLOAT, shape);
+  input.flat<float>().setZero();
+    
+  //Fill the input tensor
+  unsigned int ibatch = 0;
+  for (const auto& element_batch : element_batches) {
+    sw.Start();
 
     //Put all PFElements in this PFBlock into the input tensor.
     unsigned int ielem = 0;
-    for (const auto* pelem : element_chunk) {
+    for (const auto* pelem : element_batch) {
       const auto& elem = *pelem;
       const auto& props = get_element_properties(elem);
       for (unsigned int iprop=0; iprop<NUM_ELEMENT_FEATURES; iprop++) {
-        input.tensor<float, 2>()(ielem, iprop) = props[iprop];
+        input.tensor<float, 3>()(ibatch, ielem, iprop) = props[iprop];
       }
       ielem += 1; 
     }
-    tensorflow::NamedTensorList input_list = {{"x:0", input}};
 
-    //Prepare the output tensor
-    std::vector<tensorflow::Tensor> outputs;
-    std::vector<std::string> output_names = {"Identity:0"};
+    ibatch += 1;
+  } //loop over PFBlocks
+  tensorflow::NamedTensorList input_list = {{"x:0", input}};
 
-    //run the GNN inference, given the inputs and the output.
-    //Note that the GNN enables information transfer between the input PFElements,
-    //such that the output ML-PFCandidates are in general combinations of the input PFElements, in the form of
-    //y_out = Adj.x_in, where x_in is input matrix (num_elem, NUM_ELEMENT_FEATURES), y_out is the output matrix (num_elem, NUM_OUTPUT_FEATURES)
-    //and Adj is an adjacency matrix between the elements that is constructed on the fly during model inference.
-    tensorflow::run(session_, input_list, output_names, &outputs);
+  //Prepare the output tensor
+  std::vector<tensorflow::Tensor> outputs;
+  std::vector<std::string> output_names = {"Identity:0"};
 
-    //process the output tensor to ML-PFCandidates.
-    //The output can contain up to num_elem particles, with predicted PDGID=0 corresponding to no particles predicted.
-    const auto out_arr = outputs[0].tensor<float, 2>();
-    for (unsigned int ielem=0; ielem < num_elems; ielem++) {
+  //run the GNN inference, given the inputs and the output.
+  //Note that the GNN enables information transfer between the input PFElements,
+  //such that the output ML-PFCandidates are in general combinations of the input PFElements, in the form of
+  //y_out = Adj.x_in, where x_in is input matrix (num_elem, NUM_ELEMENT_FEATURES), y_out is the output matrix (num_elem, NUM_OUTPUT_FEATURES)
+  //and Adj is an adjacency matrix between the elements that is constructed on the fly during model inference.
+  tensorflow::run(session_, input_list, output_names, &outputs);
 
+  //process the output tensor to ML-PFCandidates.
+  //The output can contain up to num_elem particles, with predicted PDGID=0 corresponding to no particles predicted.
+  const auto out_arr = outputs[0].tensor<float, 3>();
+  unsigned int num_pred_particles = 0;
+  for (unsigned int ibatch=0; ibatch < num_batches; ibatch++) {
+    for (unsigned int ielem=0; ielem < num_max_elems_batch; ielem++) {
       //get the coefficients in the output corresponding to the class probabilities (raw logits) 
       std::vector<float> pred_id_logits;
       for (unsigned int idx_id=0; idx_id<NUM_CLASS; idx_id++) {
-        pred_id_logits.push_back(out_arr(ielem, idx_id));
+        pred_id_logits.push_back(out_arr(ibatch, ielem, idx_id));
       }
       //get the most probable class PDGID
       int pred_pid = pdgid_encoding.at(arg_max(pred_id_logits));
 
       //get the predicted momentum components
-      float pred_eta = out_arr(ielem, IDX_ETA);
-      float pred_phi = out_arr(ielem, IDX_PHI);
+      float pred_eta = out_arr(ibatch, ielem, IDX_ETA);
+      float pred_phi = out_arr(ibatch, ielem, IDX_PHI);
       pred_phi = TMath::ATan2(TMath::Sin(pred_phi), TMath::Cos(pred_phi));
-      float pred_e = out_arr(ielem, IDX_ENERGY);
+      float pred_e = out_arr(ibatch, ielem, IDX_ENERGY);
 
       //currently, set the pT from a massless approximation.
       //later versions of the model can predict predict both the energy and pT of the particle
       float pred_pt = pred_e / TMath::CosH(pred_eta);
 
-      float pred_charge = out_arr(ielem, IDX_CHARGE);
+      float pred_charge = out_arr(ibatch, ielem, IDX_CHARGE);
 
       //std::cout << elems[ielem] << std::endl;
 
@@ -318,18 +337,17 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
         cand.setParticleType(cand.translatePdgIdToType(pred_pid));
         cand.setCharge(charge);
         pOutputCandidateCollection.push_back(cand);
-
+        num_pred_particles += 1;
       } else {
         //this element did not directly yield a particle, but could have been used indirectly for other ML-PFCandidates
       }
     } //loop over PFElements
+  }
+  sw.Stop();
 
-    sw.Stop();
-    total_time += sw.CpuTime();
-    std::cout << "num_elems=" << num_elems << " cputime=" << sw.CpuTime() << std::endl;
-
-  } //loop over PFBlocks
-  std::cout << "total_time=" << total_time << std::endl;
+  std::cout << "num_elements_total=" << num_elements_total
+    << " num_pred_particles=" << num_pred_particles
+    << " cputime=" << sw.CpuTime() << std::endl;
 
   event.emplace(pfCandidatesToken_, pOutputCandidateCollection);
 }
@@ -353,6 +371,7 @@ void MLPFProducer::globalEndJob(MLPFCache* cache) {
 void MLPFProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("src", edm::InputTag("particleFlowBlock"));
+  desc.add<unsigned int>("min_batch_size", 500);
   desc.add<std::string>("model_path", "RecoParticleFlow/PFProducer/data/mlpf/mlpf_2020_05_07.pb");
   descriptions.add("MLPFProducer", desc);
 }
