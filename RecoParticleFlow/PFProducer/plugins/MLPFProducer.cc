@@ -22,21 +22,21 @@ static const unsigned int NUM_ELEMENT_FEATURES = 15;
 
 //The model has 13 outputs for each particle, which consist of:
 
-//class_probabilities_logits [NUM_CLASS]
-//eta
-//phi
-//energy
-//charge
-//placeholder
-static const unsigned int NUM_CLASS = 8;
-static const unsigned int IDX_ETA = 9;
-static const unsigned int IDX_PHI = 10;
-static const unsigned int IDX_ENERGY = 11;
-static const unsigned int IDX_CHARGE = 12;
+static const unsigned int NUM_OUTPUTS = 12;
+//0...7: class probabilities
+//8: eta
+//9: phi
+//10: energy
+//11: charge
+static const unsigned int NUM_CLASS = 7;
+static const unsigned int IDX_ETA = 8;
+static const unsigned int IDX_PHI = 9;
+static const unsigned int IDX_ENERGY = 10;
+static const unsigned int IDX_CHARGE = 11;
 
 
 //index [0, N_pdgids) -> PDGID
-//this maps the absolute values of the predictable PDGIDs to an array of ascending indices
+//this maps the absolute values of the predicted PDGIDs to an array of ascending indices
 static const std::vector<int> pdgid_encoding = {0, 1, 2, 11, 13, 22, 130, 211};
 
 //PFElement::type -> index [0, N_types)
@@ -176,9 +176,10 @@ std::array<float, NUM_ELEMENT_FEATURES> get_element_properties(const reco::PFBlo
  
   //Must be the same order as in tf_model.py 
   return std::array<float, NUM_ELEMENT_FEATURES>({{
-    typ_idx, pt, eta, phi,
-    energy, layer, depth, charge,
-    trajpoint, eta_ecal, phi_ecal, eta_hcal, phi_hcal,
+    typ_idx,
+    pt, eta, phi, energy,
+    layer, depth, charge, trajpoint,
+    eta_ecal, phi_ecal, eta_hcal, phi_hcal,
     muon_dt_hits, muon_csc_hits}});
 
 }
@@ -214,6 +215,16 @@ MLPFProducer::MLPFProducer(const edm::ParameterSet& cfg, const MLPFCache* cache)
 template <typename T, typename A>
 int arg_max(std::vector<T, A> const& vec) {
   return static_cast<int>(std::distance(vec.begin(), max_element(vec.begin(), vec.end())));
+}
+
+float normalize(float in) {
+    if (std::abs(in) > 1e4) {
+        return 0.0;
+    }
+    else if (std::isnan(in)) {
+        return 0.0;
+    }
+    return in;
 }
 
 void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
@@ -263,17 +274,23 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
   input.flat<float>().setZero();
     
   //Fill the input tensor
+  sw.Start();
   unsigned int ibatch = 0;
   for (const auto& element_batch : element_batches) {
-    sw.Start();
 
     //Put all PFElements in this PFBlock into the input tensor.
     unsigned int ielem = 0;
     for (const auto* pelem : element_batch) {
+
+      //get the PFElement as a pointer
       const auto& elem = *pelem;
+
+      //prepare the input array from the PFElement
       const auto& props = get_element_properties(elem);
+
+      //copy features to the input array
       for (unsigned int iprop=0; iprop<NUM_ELEMENT_FEATURES; iprop++) {
-        input.tensor<float, 3>()(ibatch, ielem, iprop) = props[iprop];
+        input.tensor<float, 3>()(ibatch, ielem, iprop) = normalize(props[iprop]);
       }
       ielem += 1; 
     }
@@ -296,12 +313,14 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
   //process the output tensor to ML-PFCandidates.
   //The output can contain up to num_elem particles, with predicted PDGID=0 corresponding to no particles predicted.
   const auto out_arr = outputs[0].tensor<float, 3>();
+
   unsigned int num_pred_particles = 0;
-  for (unsigned int ibatch=0; ibatch < num_batches; ibatch++) {
-    for (unsigned int ielem=0; ielem < num_max_elems_batch; ielem++) {
+  for (unsigned int ibatch=0; ibatch<num_batches; ibatch++) {
+    for (unsigned int ielem=0; ielem<element_batches.at(ibatch).size(); ielem++) {
+
       //get the coefficients in the output corresponding to the class probabilities (raw logits) 
       std::vector<float> pred_id_logits;
-      for (unsigned int idx_id=0; idx_id<NUM_CLASS; idx_id++) {
+      for (unsigned int idx_id=0; idx_id <= NUM_CLASS; idx_id++) {
         pred_id_logits.push_back(out_arr(ibatch, ielem, idx_id));
       }
       //get the most probable class PDGID
@@ -314,12 +333,14 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
       float pred_e = out_arr(ibatch, ielem, IDX_ENERGY);
 
       //currently, set the pT from a massless approximation.
-      //later versions of the model can predict predict both the energy and pT of the particle
-      float pred_pt = pred_e / TMath::CosH(pred_eta);
+      //later versions of the model may predict predict both the energy and pT of the particle
+      float pred_pt = pred_e / cosh(pred_eta);
 
       float pred_charge = out_arr(ibatch, ielem, IDX_CHARGE);
 
-      //std::cout << elems[ielem] << std::endl;
+      element_batches.at(ibatch).at(ielem)->Dump();
+
+      std::cout << " MLPF " << pred_pid << "," << pred_pt << "," << pred_e << "," << pred_eta << "," << pred_phi << std::endl;
 
       //a particle was predicted for this PFElement
       if (pred_pid != 0) {
@@ -334,7 +355,7 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
         p4.SetPtEtaPhiE(pred_pt, pred_eta, pred_phi, pred_e);
 
         reco::PFCandidate cand(0, math::XYZTLorentzVector(p4.X(), p4.Y(), p4.Z(), p4.E()), reco::PFCandidate::ParticleType(0));
-        cand.setParticleType(cand.translatePdgIdToType(pred_pid));
+        cand.setPdgId(pred_pid);
         cand.setCharge(charge);
         pOutputCandidateCollection.push_back(cand);
         num_pred_particles += 1;
