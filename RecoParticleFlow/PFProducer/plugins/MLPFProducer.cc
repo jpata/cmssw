@@ -255,7 +255,8 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
 
   //get the maximum number of elements for all the batches
   unsigned int num_max_elems_batch = 0;
-  unsigned int num_elements_total = 0; 
+  unsigned int num_elements_total = 0;
+ 
   std::cout << "num_batches=" << element_batches.size();
   for (const auto& element_batch : element_batches) {
     if (element_batch.size() > num_max_elems_batch) {
@@ -338,9 +339,9 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
 
       float pred_charge = out_arr(ibatch, ielem, IDX_CHARGE);
 
-      element_batches.at(ibatch).at(ielem)->Dump();
-
-      std::cout << " MLPF " << pred_pid << "," << pred_pt << "," << pred_e << "," << pred_eta << "," << pred_phi << std::endl;
+      //very verbose
+      //element_batches.at(ibatch).at(ielem)->Dump();
+      std::cout << "MLPF " << pred_pid << "," << pred_pt << "," << pred_e << "," << pred_eta << "," << pred_phi << std::endl;
 
       //a particle was predicted for this PFElement
       if (pred_pid != 0) {

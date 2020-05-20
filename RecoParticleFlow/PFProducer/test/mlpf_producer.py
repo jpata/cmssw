@@ -18,7 +18,7 @@ process.maxEvents = cms.untracked.PSet(
 # Input source
 process.source = cms.Source("PoolSource",
     secondaryFileNames=cms.untracked.vstring(),
-    fileNames=cms.untracked.vstring("file:testjob/step3_phase1_new.root"),
+    fileNames=cms.untracked.vstring("http://login-1.hep.caltech.edu/~jpata/particleflow/2020-05/test_input/edm_pf_2ev.root"),
     skipEvents=cms.untracked.uint32(0)
 )
 
