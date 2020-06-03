@@ -4,7 +4,7 @@ def customize_step3(process):
     process.mlpfproducer = cms.EDProducer("MLPFProducer",
         src=cms.InputTag("particleFlowBlock"),
         min_batch_size=cms.uint32(1000),
-        model_path=cms.string("RecoParticleFlow/PFProducer/data/mlpf/mlpf_2020_05_19.pb")
+        model_path=cms.string("RecoParticleFlow/PFProducer/data/mlpf/mlpf_2020_05_21.pb")
     ) 
     process.ak4MLPFJets = process.ak4PFJets.clone()
     process.ak4MLPFJets.src = cms.InputTag("mlpfproducer")

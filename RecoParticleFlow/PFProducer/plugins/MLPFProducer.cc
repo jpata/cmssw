@@ -358,6 +358,12 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
         reco::PFCandidate cand(0, math::XYZTLorentzVector(p4.X(), p4.Y(), p4.Z(), p4.E()), reco::PFCandidate::ParticleType(0));
         cand.setPdgId(pred_pid);
         cand.setCharge(charge);
+
+        const reco::PFBlockElement* elem = element_batches.at(ibatch).at(ielem);
+        if (elem->type() == reco::PFBlockElement::TRACK) {
+            cand.setTrackRef(elem->trackRef());
+        }
+
         pOutputCandidateCollection.push_back(cand);
         num_pred_particles += 1;
       } else {
