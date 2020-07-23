@@ -172,11 +172,13 @@ void MultiplicityPair<T1, T2>::getEvent(const edm::Event& iEvent, const edm::Eve
 
 template <class T1, class T2>
 int MultiplicityPair<T1, T2>::mult1() const {
+  std::cout << "mult1=" << m_multiplicity1.mult() << std::endl; 
   return m_multiplicity1.mult();
 }
 
 template <class T1, class T2>
 int MultiplicityPair<T1, T2>::mult2() const {
+  std::cout << "mult2=" << m_multiplicity2.mult() << std::endl; 
   return m_multiplicity2.mult();
 }
 

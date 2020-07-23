@@ -57,6 +57,7 @@ private:
   T m_multiplicities;
   StringCutObjectSelector<T> m_selector;
   bool m_taggedMode, m_forcedValue;
+  std::string bla;
 };
 
 //
@@ -80,6 +81,7 @@ ByMultiplicityEventFilter<T>::ByMultiplicityEventFilter(const edm::ParameterSet&
 {
   //now do what ever initialization is needed
   produces<bool>();
+  bla = iConfig.getParameter<std::string>("cut");
 }
 
 template <class T>
@@ -99,8 +101,10 @@ bool ByMultiplicityEventFilter<T>::filter(edm::Event& iEvent, const edm::EventSe
 
   m_multiplicities.getEvent(iEvent, iSetup);
 
+  std::cout << "name=" << bla << std::endl;
   bool value = m_selector(m_multiplicities);
   iEvent.put(std::make_unique<bool>(value));
+  std::cout << "value=" << value << std::endl;
 
   if (m_taggedMode)
     return m_forcedValue;
