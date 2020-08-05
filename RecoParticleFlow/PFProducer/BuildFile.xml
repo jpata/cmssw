@@ -15,6 +15,7 @@
 <use name="boost"/>
 <use name="clhep"/>
 <use name="rootmath"/>
+<use name="cuda"/>
 <export>
   <lib name="1"/>
 </export>
