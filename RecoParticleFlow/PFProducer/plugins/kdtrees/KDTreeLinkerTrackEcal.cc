@@ -1,8 +1,54 @@
 #include "DataFormats/ParticleFlowReco/interface/PFCluster.h"
 #include "RecoParticleFlow/PFProducer/interface/KDTreeLinkerBase.h"
 #include "CommonTools/RecoAlgos/interface/KDTreeLinkerAlgo.h"
+#include "CommonTools/Utils/interface/KinematicTables.h"
+#include "FWCore/SOA/interface/Column.h"
 
 #include "TMath.h"
+
+namespace edm {
+  namespace soa {
+    namespace col {
+      namespace PF {
+        SOA_DECLARE_COLUMN(Pt, double, "pt");
+        SOA_DECLARE_COLUMN(Eta, float, "eta");
+        SOA_DECLARE_COLUMN(Phi, float, "phi");
+        SOA_DECLARE_COLUMN(Posx, double, "Posx");
+        SOA_DECLARE_COLUMN(Posy, double, "Posy");
+        SOA_DECLARE_COLUMN(Posz, double, "Posz");
+      }  // namespace PF
+    }    // namespace col
+  }      // namespace soa
+}  // namespace edm
+using namespace edm::soa;
+using TrackTable = Table<col::PF::Pt, col::PF::Eta, col::PF::Phi, col::PF::Posx, col::PF::Posy, col::PF::Posz>;
+
+TrackTable makeTrackTable(const BlockEltSet &targetSet) {
+  std::vector<double> pt;
+  std::vector<float> eta;
+  std::vector<float> phi;
+  std::vector<double> x;
+  std::vector<double> y;
+  std::vector<double> z;
+
+  for (const reco::PFBlockElement *pfelement_track : targetSet) {
+    reco::PFRecTrackRef trackref = pfelement_track->trackRefPF();
+
+    const reco::PFTrajectoryPoint &atECAL = trackref->extrapolatedPoint(reco::PFTrajectoryPoint::ECALShowerMax);
+    const reco::PFTrajectoryPoint &atVertex = trackref->extrapolatedPoint(reco::PFTrajectoryPoint::ClosestApproach);
+
+    pt.push_back(sqrt(atVertex.momentum().Vect().Perp2()));
+    eta.push_back(atECAL.positionREP().eta());
+    phi.push_back(atECAL.positionREP().phi());
+    x.push_back(atECAL.position().X());
+    y.push_back(atECAL.position().Y());
+    z.push_back(atECAL.position().Z());
+  }
+
+  const TrackTable trackTable(pt, eta, phi, x, y, z);
+  return trackTable;
+}
+
 
 // This class is used to find all links between Tracks and ECAL clusters
 // using a KDTree algorithm.
@@ -137,6 +183,9 @@ void KDTreeLinkerTrackEcal::buildTree() {
 void KDTreeLinkerTrackEcal::searchLinks() {
   // Most of the code has been taken from LinkByRecHit.cc
 
+  const auto& trackTable = makeTrackTable(targetSet_);
+
+  size_t itrack = 0;
   // We iterate over the tracks.
   for (BlockEltSet::iterator it = targetSet_.begin(); it != targetSet_.end(); it++) {
     reco::PFRecTrackRef trackref = (*it)->trackRefPF();
@@ -145,20 +194,13 @@ void KDTreeLinkerTrackEcal::searchLinks() {
     // use in an optimized way our algo results in the recursive linking algo.
     (*it)->setIsValidMultilinks(true);
 
-    const reco::PFTrajectoryPoint &atECAL = trackref->extrapolatedPoint(reco::PFTrajectoryPoint::ECALShowerMax);
+    const auto trackPt = trackTable.get<col::PF::Pt>(itrack);
+    const auto tracketa = trackTable.get<col::PF::Eta>(itrack);
+    const auto trackphi = trackTable.get<col::PF::Phi>(itrack);
+    const auto trackx = trackTable.get<col::PF::Posx>(itrack);
+    const auto tracky = trackTable.get<col::PF::Posy>(itrack);
+    const auto trackz = trackTable.get<col::PF::Posz>(itrack);
 
-    // The track didn't reach ecal
-    if (!atECAL.isValid())
-      continue;
-
-    const reco::PFTrajectoryPoint &atVertex = trackref->extrapolatedPoint(reco::PFTrajectoryPoint::ClosestApproach);
-
-    double trackPt = sqrt(atVertex.momentum().Vect().Perp2());
-    float tracketa = atECAL.positionREP().eta();
-    float trackphi = atECAL.positionREP().phi();
-    double trackx = atECAL.position().X();
-    double tracky = atECAL.position().Y();
-    double trackz = atECAL.position().Z();
 
     // Estimate the maximal envelope in phi/eta that will be used to find rechit candidates.
     // Same envelope for cap et barrel rechits.
@@ -235,6 +277,7 @@ void KDTreeLinkerTrackEcal::searchLinks() {
         }
       }
     }
+    itrack++;
   }
 }
 
