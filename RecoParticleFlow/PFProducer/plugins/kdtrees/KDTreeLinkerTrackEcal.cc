@@ -218,13 +218,13 @@ void KDTreeLinkerTrackEcal::searchLinks() {
       const auto &rhrep = recHit->positionREP();
       const auto &corners = recHit->getCornersREP();
 
-      double rhsizeeta = fabs(corners[3].eta() - corners[1].eta());
-      double rhsizephi = fabs(corners[3].phi() - corners[1].phi());
+      double rhsizeeta = std::abs(corners[3].eta() - corners[1].eta());
+      double rhsizephi = std::abs(corners[3].phi() - corners[1].phi());
       if (rhsizephi > M_PI)
         rhsizephi = 2. * M_PI - rhsizephi;
 
-      double deta = fabs(rhrep.eta() - tracketa);
-      double dphi = fabs(rhrep.phi() - trackphi);
+      double deta = std::abs(rhrep.eta() - tracketa);
+      double dphi = std::abs(rhrep.phi() - trackphi);
       if (dphi > M_PI)
         dphi = 2. * M_PI - dphi;
 
@@ -238,7 +238,7 @@ void KDTreeLinkerTrackEcal::searchLinks() {
 
         if (clusterref->layer() == PFLayer::ECAL_BARREL) {  // BARREL
           // Check if the track is in the barrel
-          if (fabs(trackz) > 300.)
+          if (std::abs(trackz) > 300.)
             continue;
 
           double _rhsizeeta = rhsizeeta * (2.00 + 1.0 / (fracsNbr * std::min(1., trackPt / 2.)));
@@ -251,7 +251,7 @@ void KDTreeLinkerTrackEcal::searchLinks() {
         } else {  // ENDCAP
 
           // Check if the track is in the cap
-          if (fabs(trackz) < 300.)
+          if (std::abs(trackz) < 300.)
             continue;
           if (trackz * clusterz < 0.)
             continue;
