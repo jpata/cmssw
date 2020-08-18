@@ -10,18 +10,26 @@ namespace edm {
   namespace soa {
     namespace col {
       namespace PF {
+        namespace d {
         SOA_DECLARE_COLUMN(Pt, double, "pt");
-        SOA_DECLARE_COLUMN(Eta, float, "eta");
-        SOA_DECLARE_COLUMN(Phi, float, "phi");
+        SOA_DECLARE_COLUMN(Eta, double, "Eta");
+        SOA_DECLARE_COLUMN(Phi, double, "Phi");
         SOA_DECLARE_COLUMN(Posx, double, "Posx");
         SOA_DECLARE_COLUMN(Posy, double, "Posy");
         SOA_DECLARE_COLUMN(Posz, double, "Posz");
+      }
+      namespace f {
+        SOA_DECLARE_COLUMN(Eta, float, "eta");
+        SOA_DECLARE_COLUMN(Phi, float, "phi");
+      }
       }  // namespace PF
     }    // namespace col
   }      // namespace soa
 }  // namespace edm
+
 using namespace edm::soa;
-using TrackTable = Table<col::PF::Pt, col::PF::Eta, col::PF::Phi, col::PF::Posx, col::PF::Posy, col::PF::Posz>;
+using TrackTable = Table<col::PF::d::Pt, col::PF::f::Eta, col::PF::f::Phi, col::PF::d::Posx, col::PF::d::Posy, col::PF::d::Posz>;
+using RecHitTable = Table<col::PF::f::Eta, col::PF::f::Phi>;
 
 TrackTable makeTrackTable(const BlockEltSet &targetSet) {
   std::vector<double> pt;
@@ -47,6 +55,12 @@ TrackTable makeTrackTable(const BlockEltSet &targetSet) {
 
   const TrackTable trackTable(pt, eta, phi, x, y, z);
   return trackTable;
+}
+
+RecHitTable makeRecHitEtaPhiTable(std::vector<const reco::PFRecHit*> const& objects) {
+  return {objects,
+          edm::soa::column_fillers(col::PF::f::Eta::filler([](reco::PFRecHit const* x) { return x->positionREP().eta(); }),
+                                   col::PF::f::Phi::filler([](reco::PFRecHit const* x) { return x->positionREP().phi(); }))};
 }
 
 
@@ -88,7 +102,7 @@ private:
   BlockEltSet fieldClusterSet_;
 
   // Sets of rechits that compose the ECAL clusters.
-  RecHitSet rechitsSet_;
+  std::vector<const reco::PFRecHit*> rechitsSet_;
 
   // Map of linked Track/ECAL clusters.
   BlockElt2BlockEltMap target2ClusterLinks_;
@@ -97,7 +111,10 @@ private:
   RecHit2BlockEltMap rechit2ClusterLinks_;
 
   // KD trees
-  KDTreeLinkerAlgo<reco::PFRecHit const *> tree_;
+  KDTreeLinkerAlgo<size_t> tree_;
+
+  TrackTable trackTable_;
+  RecHitTable rechitTable_;
 };
 
 // the text name is different so that we can easily
@@ -139,34 +156,40 @@ void KDTreeLinkerTrackEcal::insertFieldClusterElt(reco::PFBlockElement *ecalClus
     rechit2ClusterLinks_[&rechit].insert(ecalCluster);
 
     // We create a liste of rechits
-    rechitsSet_.insert(&rechit);
+    //rechitsSet_.insert(&rechit);
+    rechitsSet_.push_back(&rechit);
   }
 }
 
 void KDTreeLinkerTrackEcal::buildTree() {
+
+  trackTable_ = makeTrackTable(targetSet_);
+  rechitTable_ = makeRecHitEtaPhiTable(rechitsSet_);
+
   // List of pseudo-rechits that will be used to create the KDTree
-  std::vector<KDTreeNodeInfo<reco::PFRecHit const *, 2>> eltList;
+  std::vector<KDTreeNodeInfo<size_t, 2>> eltList;
 
   // Filling of this list
-  for (RecHitSet::const_iterator it = rechitsSet_.begin(); it != rechitsSet_.end(); it++) {
-    const reco::PFRecHit::REPPoint &posrep = (*it)->positionREP();
+  size_t irechit = 0;
+  for (const reco::PFRecHit* rechit : rechitsSet_) {
 
-    KDTreeNodeInfo<reco::PFRecHit const *, 2> rh1(*it, posrep.eta(), posrep.phi());
+    KDTreeNodeInfo<size_t, 2> rh1(irechit, rechitTable_.get<col::PF::f::Eta>(irechit), rechitTable_.get<col::PF::f::Phi>(irechit));
     eltList.push_back(rh1);
 
     // Here we solve the problem of phi circular set by duplicating some rechits
     // too close to -Pi (or to Pi) and adding (substracting) to them 2 * Pi.
     if (rh1.dims[1] > (M_PI - phiOffset_)) {
       float phi = rh1.dims[1] - 2 * M_PI;
-      KDTreeNodeInfo<reco::PFRecHit const *, 2> rh2(*it, float(posrep.eta()), phi);
+      KDTreeNodeInfo<size_t, 2> rh2(irechit, rechitTable_.get<col::PF::f::Eta>(irechit), phi);
       eltList.push_back(rh2);
     }
 
     if (rh1.dims[1] < (M_PI * -1.0 + phiOffset_)) {
       float phi = rh1.dims[1] + 2 * M_PI;
-      KDTreeNodeInfo<reco::PFRecHit const *, 2> rh3(*it, float(posrep.eta()), phi);
+      KDTreeNodeInfo<size_t, 2> rh3(irechit, rechitTable_.get<col::PF::f::Eta>(irechit), phi);
       eltList.push_back(rh3);
     }
+    irechit++;
   }
 
   // Here we define the upper/lower bounds of the 2D space (eta/phi).
@@ -183,8 +206,6 @@ void KDTreeLinkerTrackEcal::buildTree() {
 void KDTreeLinkerTrackEcal::searchLinks() {
   // Most of the code has been taken from LinkByRecHit.cc
 
-  const auto& trackTable = makeTrackTable(targetSet_);
-
   size_t itrack = 0;
   // We iterate over the tracks.
   for (BlockEltSet::iterator it = targetSet_.begin(); it != targetSet_.end(); it++) {
@@ -194,28 +215,30 @@ void KDTreeLinkerTrackEcal::searchLinks() {
     // use in an optimized way our algo results in the recursive linking algo.
     (*it)->setIsValidMultilinks(true);
 
-    const auto trackPt = trackTable.get<col::PF::Pt>(itrack);
-    const auto tracketa = trackTable.get<col::PF::Eta>(itrack);
-    const auto trackphi = trackTable.get<col::PF::Phi>(itrack);
-    const auto trackx = trackTable.get<col::PF::Posx>(itrack);
-    const auto tracky = trackTable.get<col::PF::Posy>(itrack);
-    const auto trackz = trackTable.get<col::PF::Posz>(itrack);
-
+    const auto trackPt = trackTable_.get<col::PF::d::Pt>(itrack);
+    const auto tracketa = trackTable_.get<col::PF::f::Eta>(itrack);
+    const auto trackphi = trackTable_.get<col::PF::f::Phi>(itrack);
+    const auto trackx = trackTable_.get<col::PF::d::Posx>(itrack);
+    const auto tracky = trackTable_.get<col::PF::d::Posy>(itrack);
+    const auto trackz = trackTable_.get<col::PF::d::Posz>(itrack);
 
     // Estimate the maximal envelope in phi/eta that will be used to find rechit candidates.
     // Same envelope for cap et barrel rechits.
     float range = cristalPhiEtaMaxSize_ * (2.0 + 1.0 / std::min(1., trackPt / 2.));
 
     // We search for all candidate recHits, ie all recHits contained in the maximal size envelope.
-    std::vector<reco::PFRecHit const *> recHits;
+    std::vector<size_t> recHits;
     KDTreeBox trackBox(tracketa - range, tracketa + range, trackphi - range, trackphi + range);
     tree_.search(trackBox, recHits);
 
     // Here we check all rechit candidates using the non-approximated method.
-    for (auto const &recHit : recHits) {
+    for (size_t irecHit : recHits) {
+
+      //const reco::PFRecHit* recHit = *std::next(rechitsSet_.begin(), irecHit);
+      const reco::PFRecHit* recHit = rechitsSet_[irecHit];
+
       const auto &cornersxyz = recHit->getCornersXYZ();
       const auto &posxyz = recHit->position();
-      const auto &rhrep = recHit->positionREP();
       const auto &corners = recHit->getCornersREP();
 
       double rhsizeeta = std::abs(corners[3].eta() - corners[1].eta());
@@ -223,8 +246,8 @@ void KDTreeLinkerTrackEcal::searchLinks() {
       if (rhsizephi > M_PI)
         rhsizephi = 2. * M_PI - rhsizephi;
 
-      double deta = std::abs(rhrep.eta() - tracketa);
-      double dphi = std::abs(rhrep.phi() - trackphi);
+      double deta = std::abs(rechitTable_.get<col::PF::f::Eta>(irecHit) - tracketa);
+      double dphi = std::abs(rechitTable_.get<col::PF::f::Phi>(irecHit) - trackphi);
       if (dphi > M_PI)
         dphi = 2. * M_PI - dphi;
 
