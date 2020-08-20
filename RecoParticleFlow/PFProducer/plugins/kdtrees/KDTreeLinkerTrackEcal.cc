@@ -52,7 +52,7 @@ namespace edm {
           SOA_DECLARE_COLUMN(Posz, double, "Posz");
           SOA_DECLARE_COLUMN(fracsNbr, int, "fracsNbr");
           SOA_DECLARE_COLUMN(layer, PFLayer::Layer, "layer");
-        }
+        }  // namespace cluster
       }    // namespace PF
     }      // namespace col
   }        // namespace soa
@@ -88,8 +88,7 @@ using RecHitTable = Table<PF::rechit::Eta,
                           PF::rechit::Corner2phi,
                           PF::rechit::Corner3eta,
                           PF::rechit::Corner3phi>;
-using ClusterTable =
-    Table<PF::cluster::Posz, PF::cluster::fracsNbr, PF::cluster::layer>;
+using ClusterTable = Table<PF::cluster::Posz, PF::cluster::fracsNbr, PF::cluster::layer>;
 
 TrackTable makeTrackTable(const BlockEltSet& targetSet) {
   std::vector<double> pt;
@@ -151,11 +150,11 @@ RecHitTable makeRecHitTable(std::vector<const reco::PFRecHit*> const& objects) {
 ClusterTable makeClusterTable(std::vector<reco::PFBlockElement*> const& objects) {
   return {objects,
           edm::soa::column_fillers(
-              PF::cluster::Posz::filler([](reco::PFBlockElement * x) { return x->clusterRef()->position().z(); }),
-              PF::cluster::fracsNbr::filler([](reco::PFBlockElement * x) { return x->clusterRef()->recHitFractions().size(); }),
-              PF::cluster::layer::filler([](reco::PFBlockElement * x) { return x->clusterRef()->layer(); })
-              )};
-        }
+              PF::cluster::Posz::filler([](reco::PFBlockElement* x) { return x->clusterRef()->position().z(); }),
+              PF::cluster::fracsNbr::filler(
+                  [](reco::PFBlockElement* x) { return x->clusterRef()->recHitFractions().size(); }),
+              PF::cluster::layer::filler([](reco::PFBlockElement* x) { return x->clusterRef()->layer(); }))};
+}
 
 // This class is used to find all links between Tracks and ECAL clusters
 // using a KDTree algorithm.
@@ -273,9 +272,11 @@ void KDTreeLinkerTrackEcal::buildTree() {
   clusterTable_ = makeClusterTable(fieldClusterVec_);
   for (const auto& rh_cluster : rechit2ClusterLinks_) {
     const auto* rechit = rh_cluster.first;
-    const auto idx_rechit = std::distance(rechitsVec_.begin(), std::find(rechitsVec_.begin(), rechitsVec_.end(), rechit));
+    const auto idx_rechit =
+        std::distance(rechitsVec_.begin(), std::find(rechitsVec_.begin(), rechitsVec_.end(), rechit));
     for (const auto* cluster : rh_cluster.second) {
-      const auto idx_cluster = std::distance(fieldClusterVec_.begin(), std::find(fieldClusterVec_.begin(), fieldClusterVec_.end(), cluster));
+      const auto idx_cluster =
+          std::distance(fieldClusterVec_.begin(), std::find(fieldClusterVec_.begin(), fieldClusterVec_.end(), cluster));
       rechit2ClusterLinksIdx_[idx_rechit].push_back(idx_cluster);
     }
   }
