@@ -5,6 +5,7 @@
 #include "DataFormats/ParticleFlowReco/interface/PFRecHitFraction.h"
 #include "DataFormats/ParticleFlowReco/interface/PFBlockElement.h"
 #include "DataFormats/ParticleFlowReco/interface/PFRecHit.h"
+#include "RecoParticleFlow/PFProducer/interface/Tables.h"
 
 #include <vector>
 #include <map>
@@ -15,6 +16,14 @@ using RecHitSet = std::set<const reco::PFRecHit *>;
 
 using RecHit2BlockEltMap = std::map<const reco::PFRecHit *, BlockEltSet>;
 using BlockElt2BlockEltMap = std::map<reco::PFBlockElement *, BlockEltSet>;
+
+class PFTables {
+public:
+  std::shared_ptr<TrackTable> track_table_ = nullptr;
+  std::shared_ptr<RecHitTable> rechit_table_ = nullptr;
+  std::shared_ptr<ClusterTable> cluster_table_ = nullptr;
+};
+
 
 class KDTreeLinkerBase {
 public:
@@ -47,26 +56,26 @@ public:
   virtual void insertFieldClusterElt(reco::PFBlockElement *cluster) = 0;
 
   // The KDTree building from rechits list.
-  virtual void buildTree() = 0;
+  virtual void buildTree(const PFTables& pftables) = 0;
 
   // Here we will iterate over all target elements. For each one, we will search the closest
   // rechits in the KDTree, from rechits we will find the associated clusters and after that
   // we will check the links between the target and all closest clusters.
-  virtual void searchLinks() = 0;
+  virtual void searchLinks(const PFTables& pftables) = 0;
 
   // Here, we will store all target/cluster founded links in the PFBlockElement class
   // of each target in the PFmultilinks field.
-  virtual void updatePFBlockEltWithLinks() = 0;
+  virtual void updatePFBlockEltWithLinks(const PFTables& pftables) = 0;
 
   // Here we free all allocated structures.
   virtual void clear() = 0;
 
   // This method calls is the good order buildTree(), searchLinks(),
   // updatePFBlockEltWithLinks() and clear()
-  inline void process() {
-    buildTree();
-    searchLinks();
-    updatePFBlockEltWithLinks();
+  inline void process(const PFTables& pftables) {
+    buildTree(pftables);
+    searchLinks(pftables);
+    updatePFBlockEltWithLinks(pftables);
     clear();
   }
 

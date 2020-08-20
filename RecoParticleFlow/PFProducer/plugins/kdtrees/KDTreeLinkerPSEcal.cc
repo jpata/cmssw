@@ -21,16 +21,16 @@ public:
   void insertFieldClusterElt(reco::PFBlockElement *ecalCluster) override;
 
   // The KDTree building from rechits list.
-  void buildTree() override;
+  void buildTree(const PFTables& pftables) override;
 
   // Here we will iterate over all psCluster. For each one, we will search the closest
   // rechits in the KDTree, from rechits we will find the ecalClusters and after that
   // we will check the links between the psCluster and all closest ecalClusters.
-  void searchLinks() override;
+  void searchLinks(const PFTables& pftables) override;
 
   // Here, we will store all PS/ECAL founded links in the PFBlockElement class
   // of each psCluster in the PFmultilinks field.
-  void updatePFBlockEltWithLinks() override;
+  void updatePFBlockEltWithLinks(const PFTables& pftables) override;
 
   // Here we free all allocated structures.
   void clear() override;
@@ -113,7 +113,7 @@ void KDTreeLinkerPSEcal::insertFieldClusterElt(reco::PFBlockElement *ecalCluster
   }
 }
 
-void KDTreeLinkerPSEcal::buildTree() {
+void KDTreeLinkerPSEcal::buildTree(const PFTables& pftables) {
   buildTree(rechitsNegSet_, treeNeg_);
   buildTree(rechitsPosSet_, treePos_);
 }
@@ -138,7 +138,7 @@ void KDTreeLinkerPSEcal::buildTree(const RecHitSet &rechitsSet, KDTreeLinkerAlgo
   tree.build(eltList, region);
 }
 
-void KDTreeLinkerPSEcal::searchLinks() {
+void KDTreeLinkerPSEcal::searchLinks(const PFTables& pftables) {
   // Most of the code has been taken from LinkByRecHit.cc
 
   // We iterate over the PS clusters.
@@ -230,7 +230,7 @@ void KDTreeLinkerPSEcal::searchLinks() {
   }
 }
 
-void KDTreeLinkerPSEcal::updatePFBlockEltWithLinks() {
+void KDTreeLinkerPSEcal::updatePFBlockEltWithLinks(const PFTables& pftables) {
   //TODO YG : Check if cluster positionREP() is valid ?
 
   // Here we save in each track the list of phi/eta values of linked clusters.

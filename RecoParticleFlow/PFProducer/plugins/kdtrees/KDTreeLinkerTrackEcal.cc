@@ -1,94 +1,14 @@
 #include "DataFormats/ParticleFlowReco/interface/PFCluster.h"
 #include "RecoParticleFlow/PFProducer/interface/KDTreeLinkerBase.h"
 #include "CommonTools/RecoAlgos/interface/KDTreeLinkerAlgo.h"
-#include "CommonTools/Utils/interface/KinematicTables.h"
 #include "FWCore/SOA/interface/Column.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "RecoParticleFlow/PFProducer/interface/Tables.h"
 
 #include "TMath.h"
 
-namespace edm {
-  namespace soa {
-    namespace col {
-      namespace PF {
-        namespace track {
-          SOA_DECLARE_COLUMN(Pt, double, "pt");
-          SOA_DECLARE_COLUMN(Eta, float, "eta");
-          SOA_DECLARE_COLUMN(Phi, float, "phi");
-          SOA_DECLARE_COLUMN(Posx, double, "Posx");
-          SOA_DECLARE_COLUMN(Posy, double, "Posy");
-          SOA_DECLARE_COLUMN(Posz, double, "Posz");
-        };  // namespace track
-        namespace rechit {
-          SOA_DECLARE_COLUMN(Eta, double, "eta");
-          SOA_DECLARE_COLUMN(Phi, double, "phi");
-          SOA_DECLARE_COLUMN(Posx, double, "Posx");
-          SOA_DECLARE_COLUMN(Posy, double, "Posy");
-          SOA_DECLARE_COLUMN(Posz, double, "Posz");
-
-          SOA_DECLARE_COLUMN(Corner0x, double, "Corner0x");
-          SOA_DECLARE_COLUMN(Corner0y, double, "Corner0y");
-          SOA_DECLARE_COLUMN(Corner0z, double, "Corner0z");
-          SOA_DECLARE_COLUMN(Corner1x, double, "Corner1x");
-          SOA_DECLARE_COLUMN(Corner1y, double, "Corner1y");
-          SOA_DECLARE_COLUMN(Corner1z, double, "Corner1z");
-          SOA_DECLARE_COLUMN(Corner2x, double, "Corner2x");
-          SOA_DECLARE_COLUMN(Corner2y, double, "Corner2y");
-          SOA_DECLARE_COLUMN(Corner2z, double, "Corner2z");
-          SOA_DECLARE_COLUMN(Corner3x, double, "Corner3x");
-          SOA_DECLARE_COLUMN(Corner3y, double, "Corner3y");
-          SOA_DECLARE_COLUMN(Corner3z, double, "Corner3z");
-
-          SOA_DECLARE_COLUMN(Corner0eta, double, "Corner0eta");
-          SOA_DECLARE_COLUMN(Corner0phi, double, "Corner0phi");
-          SOA_DECLARE_COLUMN(Corner1eta, double, "Corner1eta");
-          SOA_DECLARE_COLUMN(Corner1phi, double, "Corner1phi");
-          SOA_DECLARE_COLUMN(Corner2eta, double, "Corner2eta");
-          SOA_DECLARE_COLUMN(Corner2phi, double, "Corner2phi");
-          SOA_DECLARE_COLUMN(Corner3eta, double, "Corner3eta");
-          SOA_DECLARE_COLUMN(Corner3phi, double, "Corner3phi");
-        }  // namespace rechit
-        namespace cluster {
-          SOA_DECLARE_COLUMN(Posz, double, "Posz");
-          SOA_DECLARE_COLUMN(fracsNbr, int, "fracsNbr");
-          SOA_DECLARE_COLUMN(layer, PFLayer::Layer, "layer");
-        }  // namespace cluster
-      }    // namespace PF
-    }      // namespace col
-  }        // namespace soa
-}  // namespace edm
-
 using namespace edm::soa;
 using namespace edm::soa::col;
-
-using TrackTable =
-    Table<PF::track::Pt, PF::track::Eta, PF::track::Phi, PF::track::Posx, PF::track::Posy, PF::track::Posz>;
-using RecHitTable = Table<PF::rechit::Eta,
-                          PF::rechit::Phi,
-                          PF::rechit::Posx,
-                          PF::rechit::Posy,
-                          PF::rechit::Posz,
-                          PF::rechit::Corner0x,
-                          PF::rechit::Corner0y,
-                          PF::rechit::Corner0z,
-                          PF::rechit::Corner1x,
-                          PF::rechit::Corner1y,
-                          PF::rechit::Corner1z,
-                          PF::rechit::Corner2x,
-                          PF::rechit::Corner2y,
-                          PF::rechit::Corner2z,
-                          PF::rechit::Corner3x,
-                          PF::rechit::Corner3y,
-                          PF::rechit::Corner3z,
-                          PF::rechit::Corner0eta,
-                          PF::rechit::Corner0phi,
-                          PF::rechit::Corner1eta,
-                          PF::rechit::Corner1phi,
-                          PF::rechit::Corner2eta,
-                          PF::rechit::Corner2phi,
-                          PF::rechit::Corner3eta,
-                          PF::rechit::Corner3phi>;
-using ClusterTable = Table<PF::cluster::Posz, PF::cluster::fracsNbr, PF::cluster::layer>;
 
 TrackTable makeTrackTable(const BlockEltSet& targetSet) {
   std::vector<double> pt;
@@ -173,17 +93,17 @@ public:
   void insertFieldClusterElt(reco::PFBlockElement* ecalCluster) override;
 
   // The KDTree building from rechits list.
-  void buildTree() override;
+  void buildTree(const PFTables& pftables) override;
 
   // Here we will iterate over all tracks. For each track intersection point with ECAL,
   // we will search the closest rechits in the KDTree, from rechits we will find the
   // ecalClusters and after that we will check the links between the track and
   // all closest ecalClusters.
-  void searchLinks() override;
+  void searchLinks(const PFTables& pftables) override;
 
   // Here, we will store all PS/ECAL founded links in the PFBlockElement class
   // of each psCluster in the PFmultilinks field.
-  void updatePFBlockEltWithLinks() override;
+  void updatePFBlockEltWithLinks(const PFTables& pftables) override;
 
   // Here we free all allocated structures.
   void clear() override;
@@ -256,7 +176,7 @@ void KDTreeLinkerTrackEcal::insertFieldClusterElt(reco::PFBlockElement* ecalClus
   }
 }
 
-void KDTreeLinkerTrackEcal::buildTree() {
+void KDTreeLinkerTrackEcal::buildTree(const PFTables& pftables) {
   //convert sets to ordered vectors
   for (const auto* rh : rechitsSet_) {
     rechitsVec_.push_back(rh);
@@ -320,7 +240,7 @@ void KDTreeLinkerTrackEcal::buildTree() {
   tree_.build(eltList, region);
 }
 
-void KDTreeLinkerTrackEcal::searchLinks() {
+void KDTreeLinkerTrackEcal::searchLinks(const PFTables& pftables) {
   // Most of the code has been taken from LinkByRecHit.cc
 
   size_t itrack = 0;
@@ -425,21 +345,23 @@ void KDTreeLinkerTrackEcal::searchLinks() {
   }
 }
 
-void KDTreeLinkerTrackEcal::updatePFBlockEltWithLinks() {
+void KDTreeLinkerTrackEcal::updatePFBlockEltWithLinks(const PFTables& pftables) {
   //TODO YG : Check if cluster positionREP() is valid ?
 
   // Here we save in each track the list of phi/eta values of linked clusters.
-  for (BlockElt2BlockEltMap::iterator it = target2ClusterLinks_.begin(); it != target2ClusterLinks_.end(); ++it) {
+  for (const auto& track_clusters : target2ClusterLinks_) {
+    reco::PFBlockElement* track = track_clusters.first;
+    const BlockEltSet& clusters = track_clusters.second;
     reco::PFMultiLinksTC multitracks(true);
 
-    for (BlockEltSet::iterator jt = it->second.begin(); jt != it->second.end(); ++jt) {
-      double clusterphi = (*jt)->clusterRef()->positionREP().phi();
-      double clustereta = (*jt)->clusterRef()->positionREP().eta();
+    for (reco::PFBlockElement* cluster : clusters) {
+      double clusterphi = cluster->clusterRef()->positionREP().phi();
+      double clustereta = cluster->clusterRef()->positionREP().eta();
 
       multitracks.linkedClusters.push_back(std::make_pair(clusterphi, clustereta));
     }
 
-    it->first->setMultilinks(multitracks);
+    track->setMultilinks(multitracks);
   }
 }
 

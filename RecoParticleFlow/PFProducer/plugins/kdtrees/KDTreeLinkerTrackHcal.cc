@@ -1,6 +1,8 @@
 #include "DataFormats/ParticleFlowReco/interface/PFCluster.h"
 #include "RecoParticleFlow/PFProducer/interface/KDTreeLinkerBase.h"
 #include "CommonTools/RecoAlgos/interface/KDTreeLinkerAlgo.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "RecoParticleFlow/PFProducer/interface/Tables.h"
 
 // This class is used to find all links between Tracks and HCAL clusters
 // using a KDTree algorithm.
@@ -19,17 +21,17 @@ public:
   void insertFieldClusterElt(reco::PFBlockElement* hcalCluster) override;
 
   // The KDTree building from rechits list.
-  void buildTree() override;
+  void buildTree(const PFTables& pftables) override;
 
   // Here we will iterate over all tracks. For each track intersection point with HCAL,
   // we will search the closest rechits in the KDTree, from rechits we will find the
   // hcalClusters and after that we will check the links between the track and
   // all closest hcalClusters.
-  void searchLinks() override;
+  void searchLinks(const PFTables& pftables) override;
 
   // Here, we will store all PS/HCAL founded links in the PFBlockElement class
   // of each psCluster in the PFmultilinks field.
-  void updatePFBlockEltWithLinks() override;
+  void updatePFBlockEltWithLinks(const PFTables& pftables) override;
 
   // Here we free all allocated structures.
   void clear() override;
@@ -121,7 +123,7 @@ void KDTreeLinkerTrackHcal::insertFieldClusterElt(reco::PFBlockElement* hcalClus
   }
 }
 
-void KDTreeLinkerTrackHcal::buildTree() {
+void KDTreeLinkerTrackHcal::buildTree(const PFTables& pftables) {
   // List of pseudo-rechits that will be used to create the KDTree
   std::vector<KDTreeNodeInfo<reco::PFRecHit const*, 2>> eltList;
 
@@ -158,7 +160,7 @@ void KDTreeLinkerTrackHcal::buildTree() {
   tree_.build(eltList, region);
 }
 
-void KDTreeLinkerTrackHcal::searchLinks() {
+void KDTreeLinkerTrackHcal::searchLinks(const PFTables& pftables) {
   // Most of the code has been taken from LinkByRecHit.cc
 
   // We iterate over the tracks.
@@ -236,7 +238,7 @@ void KDTreeLinkerTrackHcal::searchLinks() {
   }
 }
 
-void KDTreeLinkerTrackHcal::updatePFBlockEltWithLinks() {
+void KDTreeLinkerTrackHcal::updatePFBlockEltWithLinks(const PFTables& pftables) {
   //TODO YG : Check if cluster positionREP() is valid ?
 
   // Here we save in each HCAL cluster the list of phi/eta values of linked clusters (actually tracks).
@@ -253,6 +255,7 @@ void KDTreeLinkerTrackHcal::updatePFBlockEltWithLinks() {
 
       multitracks.linkedClusters.push_back(std::make_pair(trackphi, tracketa));
     }
+    LogDebug("KDTreeLinkerTrackHcal") << "cluster has " << multitracks.linkedClusters.size() << " linked tracks";
 
     cluster->setMultilinks(multitracks);
   }

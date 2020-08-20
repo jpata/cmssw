@@ -3,6 +3,7 @@
 #include "DataFormats/ParticleFlowReco/interface/PFBlockElementCluster.h"
 #include "DataFormats/ParticleFlowReco/interface/PFBlockElementTrack.h"
 #include "RecoParticleFlow/PFClusterTools/interface/LinkByRecHit.h"
+#include "RecoParticleFlow/PFProducer/interface/Tables.h"
 
 class TrackAndECALLinker : public BlockElementLinkerBase {
 public:
@@ -14,9 +15,11 @@ public:
   bool linkPrefilter(const reco::PFBlockElement*, const reco::PFBlockElement*) const override;
 
   double testLink(const reco::PFBlockElement*, const reco::PFBlockElement*) const override;
-
+  
 private:
   const bool useKDTree_, debug_;
+  TrackTable* track_table_;
+  ClusterTable* cluster_table_;
 };
 
 DEFINE_EDM_PLUGIN(BlockElementLinkerFactory, TrackAndECALLinker, "TrackAndECALLinker");

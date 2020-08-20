@@ -111,6 +111,7 @@ void PFBlockAlgo::setLinkers(const std::vector<edm::ParameterSet>& confs) {
     const PFBlockElement::Type type2 = elementTypes_.at(link2);
     const unsigned index = rowsize * std::max(type1, type2) + std::min(type1, type2);
     linkTests_[index] = BlockElementLinkerFactory::get()->create(linkerName, conf);
+
     linkTestSquare_[type1][type2] = index;
     linkTestSquare_[type2][type1] = index;
     // setup KDtree if requested
@@ -139,10 +140,13 @@ PFBlockAlgo::~PFBlockAlgo() {
 }
 
 reco::PFBlockCollection PFBlockAlgo::findBlocks() {
+
+  PFTables pf_tables;
   // Glowinski & Gouzevitch
   for (const auto& kdtree : kdtrees_) {
-    kdtree->process();
+    kdtree->process(pf_tables);
   }
+
   // !Glowinski & Gouzevitch
   reco::PFBlockCollection blocks;
   // the blocks have not been passed to the event, and need to be cleared
@@ -159,15 +163,10 @@ reco::PFBlockCollection PFBlockAlgo::findBlocks() {
         continue;
       }
       auto p1(elements_[i].get()), p2(elements_[j].get());
-      const PFBlockElement::Type type1 = p1->type();
-      const PFBlockElement::Type type2 = p2->type();
-      const unsigned index = linkTestSquare_[type1][type2];
-      if (linkTests_[index]->linkPrefilter(p1, p2)) {
-        const double dist = linkTests_[index]->testLink(p1, p2);
-        // compute linking info if it is possible
-        if (dist > -0.5) {
-          qu.unite(i, j);
-        }
+      double dist = -1.0;
+      link(p1, p2, dist);
+      if (dist > -0.5) {
+        qu.unite(i, j);
       }
     }
   }
@@ -321,7 +320,11 @@ void PFBlockAlgo::buildElements(const edm::Event& evt) {
       }
     }
   }
-  //std::cout << "(new) imported: " << elements_.size() << " elements!" << std::endl;
+
+
+  for (size_t ielem = ranges_[reco::PFBlockElement::TRACK].first; ielem<ranges_[reco::PFBlockElement::TRACK].second; ielem++) {
+    LogDebug("PFBlockAlgo") << "elem type=" << elements_[ielem]->type();
+  }
 }
 
 std::ostream& operator<<(std::ostream& out, const PFBlockAlgo& a) {
