@@ -99,7 +99,7 @@ TrackTable makeTrackTable(const BlockEltSet& targetSet) {
   std::vector<double> z;
 
   for (const reco::PFBlockElement* pfelement_track : targetSet) {
-    reco::PFRecTrackRef trackref = pfelement_track->trackRefPF();
+    const reco::PFRecTrackRef& trackref = pfelement_track->trackRefPF();
 
     const reco::PFTrajectoryPoint& atECAL = trackref->extrapolatedPoint(reco::PFTrajectoryPoint::ECALShowerMax);
     const reco::PFTrajectoryPoint& atVertex = trackref->extrapolatedPoint(reco::PFTrajectoryPoint::ClosestApproach);
