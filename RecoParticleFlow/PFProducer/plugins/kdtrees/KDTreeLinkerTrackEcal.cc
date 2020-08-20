@@ -257,6 +257,7 @@ void KDTreeLinkerTrackEcal::insertFieldClusterElt(reco::PFBlockElement* ecalClus
 }
 
 void KDTreeLinkerTrackEcal::buildTree() {
+  //convert sets to ordered vectors
   for (const auto* rh : rechitsSet_) {
     rechitsVec_.push_back(rh);
   }
@@ -270,6 +271,8 @@ void KDTreeLinkerTrackEcal::buildTree() {
   trackTable_ = makeTrackTable(targetSet_);
   rechitTable_ = makeRecHitTable(rechitsVec_);
   clusterTable_ = makeClusterTable(fieldClusterVec_);
+
+  //convert pointer-based links to index-based links
   for (const auto& rh_cluster : rechit2ClusterLinks_) {
     const auto* rechit = rh_cluster.first;
     const auto idx_rechit =
@@ -280,6 +283,7 @@ void KDTreeLinkerTrackEcal::buildTree() {
       rechit2ClusterLinksIdx_[idx_rechit].push_back(idx_cluster);
     }
   }
+  rechit2ClusterLinks_.clear();
 
   // List of pseudo-rechits that will be used to create the KDTree
   std::vector<KDTreeNodeInfo<size_t, 2>> eltList;
@@ -345,8 +349,6 @@ void KDTreeLinkerTrackEcal::searchLinks() {
 
     // Here we check all rechit candidates using the non-approximated method.
     for (size_t irecHit : recHits) {
-      const reco::PFRecHit* recHit = rechitsVec_[irecHit];
-
       double rhsizeeta = std::abs(rechitTable_.get<PF::rechit::Corner3eta>(irecHit) -
                                   rechitTable_.get<PF::rechit::Corner1eta>(irecHit));
       double rhsizephi = std::abs(rechitTable_.get<PF::rechit::Corner3phi>(irecHit) -
@@ -362,7 +364,7 @@ void KDTreeLinkerTrackEcal::searchLinks() {
       // Find all clusters associated to given rechit
       const auto& rechit_clusters = rechit2ClusterLinksIdx_[irecHit];
 
-      for (const auto& clusteridx : rechit_clusters) {
+      for (const size_t clusteridx : rechit_clusters) {
         //size_t clusteridx = std::distance(fieldClusterVec_.begin(), std::find(fieldClusterVec_.begin(), fieldClusterVec_.end(), *clusterIt));
         auto* clusterPtr = fieldClusterVec_[clusteridx];
         double clusterz = clusterTable_.get<PF::cluster::Posz>(clusteridx);
