@@ -84,6 +84,8 @@ private:
   unsigned int linkTestSquare_[reco::PFBlockElement::kNBETypes][reco::PFBlockElement::kNBETypes];
 
   std::vector<std::unique_ptr<KDTreeLinkerBase>> kdtrees_;
+
+  PFTables tables;
 };
 
 #endif

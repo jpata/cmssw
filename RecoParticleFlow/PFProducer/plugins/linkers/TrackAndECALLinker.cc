@@ -18,8 +18,6 @@ public:
   
 private:
   const bool useKDTree_, debug_;
-  TrackTable* track_table_;
-  ClusterTable* cluster_table_;
 };
 
 DEFINE_EDM_PLUGIN(BlockElementLinkerFactory, TrackAndECALLinker, "TrackAndECALLinker");

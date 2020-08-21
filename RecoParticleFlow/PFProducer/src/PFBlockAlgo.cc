@@ -322,9 +322,14 @@ void PFBlockAlgo::buildElements(const edm::Event& evt) {
   }
 
 
+  std::set<reco::PFBlockElement*> tracks;
   for (size_t ielem = ranges_[reco::PFBlockElement::TRACK].first; ielem<ranges_[reco::PFBlockElement::TRACK].second; ielem++) {
     LogDebug("PFBlockAlgo") << "elem type=" << elements_[ielem]->type();
+    tracks.insert(elements_[ielem].get());
   }
+
+  tables.track_table_ = edm::soa::col::makeTrackTable(tracks);
+
 }
 
 std::ostream& operator<<(std::ostream& out, const PFBlockAlgo& a) {

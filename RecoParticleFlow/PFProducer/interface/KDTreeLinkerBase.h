@@ -19,9 +19,9 @@ using BlockElt2BlockEltMap = std::map<reco::PFBlockElement *, BlockEltSet>;
 
 class PFTables {
 public:
-  std::shared_ptr<TrackTable> track_table_ = nullptr;
-  std::shared_ptr<RecHitTable> rechit_table_ = nullptr;
-  std::shared_ptr<ClusterTable> cluster_table_ = nullptr;
+  edm::soa::col::TrackTable track_table_;
+  edm::soa::col::RecHitTable rechit_table_;
+  edm::soa::col::ClusterTable cluster_table_;
 };
 
 
