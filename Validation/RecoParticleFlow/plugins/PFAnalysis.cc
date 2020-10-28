@@ -90,7 +90,7 @@ vector<int> find_element_ref(const vector<ElementWithIndex>& vec, const edm::Ref
     //  const auto* orig2 = (const reco::PFBlockElementBrem*)&(elem.orig);
     //  const auto& ref = orig2->GsftrackRef();
     //  if (ref.isNonnull() && ref->extra().isNonnull()) {
-    //    cout << "elem brem " << i << " key=" << ref->extra().key() << endl;  
+    //    cout << "elem brem " << i << " key=" << ref->extra().key() << endl;
     //    if (ref->extra().key() == r->extra().key()) {
     //      ret.push_back(i);
     //    }
@@ -99,18 +99,17 @@ vector<int> find_element_ref(const vector<ElementWithIndex>& vec, const edm::Ref
     //  const auto* orig2 = (const reco::PFBlockElementGsfTrack*)&(elem.orig);
     //  const auto& ref = orig2->GsftrackRef();
     //  if (ref.isNonnull() && ref->extra().isNonnull()) {
-    //    cout << "elem gsf " << i << " key=" << ref->extra().key() << endl;  
+    //    cout << "elem gsf " << i << " key=" << ref->extra().key() << endl;
     //    if (ref->extra().key() == r->extra().key()) {
     //      ret.push_back(i);
     //    }
     //  }
     //} //outer if over type
-  } //for
+  }  //for
   return ret;
 }
 
-double detid_compare(const map<uint64_t, double>& rechits,
-                     const map<uint64_t, double>& simhits) {
+double detid_compare(const map<uint64_t, double>& rechits, const map<uint64_t, double>& simhits) {
   double ret = 0.0;
 
   for (const auto& rh : rechits) {
@@ -776,8 +775,8 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     int charge = 0;
     int layer = 0;
     float depth = 0;
-    float muon_dt_hits  = 0.0;
-    float muon_csc_hits  = 0.0;
+    float muon_dt_hits = 0.0;
+    float muon_csc_hits = 0.0;
 
     if (type == reco::PFBlockElement::TRACK) {
       const auto& matched_pftrack = orig.trackRefPF();
@@ -843,8 +842,8 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       }
     } else if (type == reco::PFBlockElement::ECAL || type == reco::PFBlockElement::PS1 ||
                type == reco::PFBlockElement::PS2 || type == reco::PFBlockElement::HCAL ||
-               type == reco::PFBlockElement::HO ||
-               type == reco::PFBlockElement::HFHAD || type == reco::PFBlockElement::HFEM) {
+               type == reco::PFBlockElement::HO || type == reco::PFBlockElement::HFHAD ||
+               type == reco::PFBlockElement::HFEM) {
       const auto& ref = ((const reco::PFBlockElementCluster*)&orig)->clusterRef();
       if (ref.isNonnull()) {
         eta = ref->eta();
@@ -1048,7 +1047,7 @@ void PFAnalysis::associateClusterToSimCluster(const vector<ElementWithIndex>& al
         if (detids.find(pfrh.detId()) != detids.end()) {
           continue;
         }
-        detids[pfrh.detId()] += pfrh.energy()*rh.fraction();
+        detids[pfrh.detId()] += pfrh.energy() * rh.fraction();
         const auto id = DetId(pfrh.detId());
         float x = 0;
         float y = 0;
@@ -1070,10 +1069,10 @@ void PFAnalysis::associateClusterToSimCluster(const vector<ElementWithIndex>& al
         rechit_subdet_.push_back(id.subdetId());
         rechit_eta_.push_back(eta);
         rechit_phi_.push_back(phi);
-        rechit_e_.push_back(pfrh.energy()*rh.fraction());
+        rechit_e_.push_back(pfrh.energy() * rh.fraction());
         rechit_idx_element_.push_back(idx_element);
         rechit_detid_.push_back(id.rawId());
-        rechits_energy_all[id.rawId()] += pfrh.energy()*rh.fraction();
+        rechits_energy_all[id.rawId()] += pfrh.energy() * rh.fraction();
       }  //rechit_fracs
     } else if (type == reco::PFBlockElement::SC) {
       const auto& clref = ((const reco::PFBlockElementSuperCluster*)&(elem.orig))->superClusterRef();
@@ -1086,7 +1085,7 @@ void PFAnalysis::associateClusterToSimCluster(const vector<ElementWithIndex>& al
         if (detids.find(rh.first.rawId()) != detids.end()) {
           continue;
         }
-        detids[rh.first.rawId()] += cluster.energy()*rh.second;
+        detids[rh.first.rawId()] += cluster.energy() * rh.second;
         const auto id = rh.first;
         float x = 0;
         float y = 0;
@@ -1111,7 +1110,7 @@ void PFAnalysis::associateClusterToSimCluster(const vector<ElementWithIndex>& al
         rechit_e_.push_back(rh.second);
         rechit_idx_element_.push_back(idx_element);
         rechit_detid_.push_back(id.rawId());
-        rechits_energy_all[id.rawId()] += cluster.energy()*rh.second;
+        rechits_energy_all[id.rawId()] += cluster.energy() * rh.second;
       }  //rechit_fracs
     }
     detids_elements.push_back(detids);
