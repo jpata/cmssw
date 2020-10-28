@@ -1,5 +1,8 @@
 #include "RecoParticleFlow/PFClusterTools/interface/ClusterClusterMapping.h"
 
+using namespace edm::soa;
+namespace rechit = edm::soa::col::pf::rechit;
+
 // returns true as soon as the two clusters have one hit in common
 bool ClusterClusterMapping::overlap(const reco::CaloCluster &sc1,
                                     const reco::CaloCluster &sc2,
@@ -30,6 +33,30 @@ bool ClusterClusterMapping::overlap(const reco::CaloCluster &sc1,
                     << hits2[i2].first;
           std::cout << " with " << hits2[i2].second << std::endl;
         }
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool ClusterClusterMapping::overlap(const RecHitIndex &idx_rechits1,
+                                    const RecHitIndex &idx_rechits2,
+                                    RecHitTableView rechits1,
+                                    RecHitTableView rechits2,
+                                    float minfrac,
+                                    bool debug) {
+  for (size_t i1 : idx_rechits1) {
+    // consider only with a minimum fraction of minfrac (default 1%) of the RecHit
+    if (rechits1.get<rechit::Fraction>(i1) < minfrac) {
+      continue;
+    }
+    for (size_t i2 : idx_rechits2) {
+      // consider only with a minimum fraction of minfract (default 1%) of the RecHit
+      if (rechits2.get<rechit::Fraction>(i2) < minfrac) {
+        continue;
+      }
+      if (rechits1.get<rechit::DetIdValue>(i1) == rechits2.get<rechit::DetIdValue>(i2)) {
         return true;
       }
     }

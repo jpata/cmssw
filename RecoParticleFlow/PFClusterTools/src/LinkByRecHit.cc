@@ -5,6 +5,7 @@
 
 using BVector2D = Basic2DVector<double>;
 using Vector2D = Basic2DVector<double>::MathVector;
+
 namespace {
   const Vector2D one2D = BVector2D(1.0, 1.0).v;
   const Vector2D fivepercent2D = BVector2D(0.05, 0.05).v;
@@ -14,6 +15,43 @@ namespace {
 
 // to enable debugs
 //#define PFLOW_DEBUG
+
+double LinkByRecHit::computeTrackHCALDist(bool checkExit,
+                                          size_t itrack,
+                                          size_t ihcal,
+                                          edm::soa::TableView<cluster::Eta, cluster::Phi> clusterTable,
+                                          TrackTableView trackTableEntrance,
+                                          TrackTableView trackTableExit
+
+) {
+  double dist = -1.0;
+  const double tracketa = trackTableEntrance.get<track::Eta>(itrack);
+  const double trackphi = trackTableEntrance.get<track::Phi>(itrack);
+  const double clustereta = clusterTable.get<cluster::Eta>(ihcal);
+  const double clusterphi = clusterTable.get<cluster::Phi>(ihcal);
+
+  // when checkExit_ is false
+  if (!checkExit) {
+    dist = LinkByRecHit::computeDist(clustereta, clusterphi, tracketa, trackphi);
+  } else {
+    const double dHEta = trackTableExit.get<track::Eta>(itrack) - trackTableEntrance.get<track::Eta>(itrack);
+    const double dHPhi =
+        reco::deltaPhi(trackTableExit.get<track::Phi>(itrack), trackTableEntrance.get<track::Phi>(itrack));
+    const double dRHCALEx = trackTableExit.get<track::PosR>(itrack);
+
+    //special case ! A looper  can exit the barrel inwards and hit the endcap
+    //In this case calculate the distance based on the first crossing since
+    //the looper will probably never make it to the endcap
+    if (dRHCALEx < trackTableEntrance.get<track::PosR>(itrack)) {
+      dist = LinkByRecHit::computeDist(clustereta, clusterphi, tracketa, trackphi);
+      edm::LogWarning("TrackHCALLinker ")
+          << "Special case of linking with track hitting HCAL and looping back in the tracker ";
+    } else {
+      dist = LinkByRecHit::computeDist(clustereta, clusterphi, tracketa + 0.1 * dHEta, trackphi + 0.1 * dHPhi);
+    }
+  }
+  return dist;
+}
 
 double LinkByRecHit::testTrackAndClusterByRecHit(const reco::PFRecTrack& track,
                                                  const reco::PFCluster& cluster,
@@ -360,6 +398,229 @@ double LinkByRecHit::testTrackAndClusterByRecHit(const reco::PFRecTrack& track,
   }
 }
 
+//copy of the above pointer-based function. Need to make sure they shar the implementation in the future!
+double LinkByRecHit::testTrackAndClusterByRecHit(
+    size_t icluster,
+    std::set<size_t> cluster_rechits,
+    edm::soa::TableView<cluster::Eta, cluster::Phi, cluster::Posz, cluster::Layer, cluster::FracsNbr> cluster_table,
+
+    RecHitTableView rechit_table,
+
+    size_t itrack,
+    edm::soa::TableView<track::Pt> tracks_vtx_table,
+    TrackTableView tracks_ecal_table,
+    TrackTableView tracks_hcalent_table,
+    TrackTableView tracks_hcalexit_table,
+    TrackTableView tracks_ho_table,
+    bool isBrem) {
+  //cluster position
+  const auto clustereta = cluster_table.get<cluster::Eta>(icluster);
+  const auto clusterphi = cluster_table.get<cluster::Phi>(icluster);
+  const auto clusterZ = cluster_table.get<cluster::Posz>(icluster);
+  const auto clusterLayer = cluster_table.get<cluster::Layer>(icluster);
+
+  bool barrel = false;
+  bool hcal = false;
+  // double distance = 999999.9;
+  double horesolscale = 1.0;
+
+  //track at calo's
+  double tracketa = 999999.9;
+  double trackphi = 999999.9;
+  double track_X = 999999.9;
+  double track_Y = 999999.9;
+  double track_Z = 999999.9;
+  double dHEta = 0.;
+  double dHPhi = 0.;
+
+  // Quantities at vertex
+  double trackPt = isBrem ? 999. : tracks_vtx_table.get<track::Pt>(itrack);
+  // double trackEta = isBrem ? 999. : atVertex.momentum().Vect().Eta();
+
+  switch (clusterLayer) {
+    case PFLayer::ECAL_BARREL:
+      barrel = true;
+      [[fallthrough]];
+    case PFLayer::ECAL_ENDCAP:
+      // did not reach ecal, cannot be associated with a cluster.
+      if (!tracks_ecal_table.get<track::ExtrapolationValid>(itrack))
+        return -1.;
+
+      tracketa = tracks_ecal_table.get<track::Eta>(itrack);
+      trackphi = tracks_ecal_table.get<track::Phi>(itrack);
+      track_X = tracks_ecal_table.get<track::Posx>(itrack);
+      track_Y = tracks_ecal_table.get<track::Posy>(itrack);
+      track_Z = tracks_ecal_table.get<track::Posz>(itrack);
+
+      break;
+
+    case PFLayer::HCAL_BARREL1:
+      barrel = true;
+      [[fallthrough]];
+    case PFLayer::HCAL_ENDCAP:
+      if (isBrem) {
+        return -1.;
+      } else {
+        hcal = true;
+        // did not reach hcal, cannot be associated with a cluster.
+        if (!tracks_hcalent_table.get<track::ExtrapolationValid>(itrack))
+          return -1.;
+
+        // The link is computed between 0 and ~1 interaction length in HCAL
+        dHEta = tracks_hcalexit_table.get<track::Eta>(itrack) - tracks_hcalent_table.get<track::Eta>(itrack);
+        dHPhi = tracks_hcalexit_table.get<track::Phi>(itrack) - tracks_hcalent_table.get<track::Phi>(itrack);
+        if (dHPhi > M_PI)
+          dHPhi = dHPhi - 2. * M_PI;
+        else if (dHPhi < -M_PI)
+          dHPhi = dHPhi + 2. * M_PI;
+
+        tracketa = tracks_hcalent_table.get<track::Eta>(itrack) + 0.1 * dHEta;
+        trackphi = tracks_hcalent_table.get<track::Phi>(itrack) + 0.1 * dHPhi;
+        track_X = tracks_hcalent_table.get<track::Posx>(itrack);
+        track_Y = tracks_hcalent_table.get<track::Posy>(itrack);
+        track_Z = tracks_hcalent_table.get<track::Posz>(itrack);
+      }
+      break;
+
+    case PFLayer::HCAL_BARREL2:
+      barrel = true;
+      if (isBrem) {
+        return -1.;
+      } else {
+        hcal = true;
+        horesolscale = 1.15;
+        // did not reach ho, cannot be associated with a cluster.
+        if (!tracks_ho_table.get<track::ExtrapolationValid>(itrack))
+          return -1.;
+
+        tracketa = tracks_ho_table.get<track::Eta>(itrack);
+        trackphi = tracks_ho_table.get<track::Phi>(itrack);
+        track_X = tracks_ho_table.get<track::Posx>(itrack);
+        track_Y = tracks_ho_table.get<track::Posy>(itrack);
+        track_Z = tracks_ho_table.get<track::Posz>(itrack);
+
+        // Is this check really useful ?
+        if (std::abs(track_Z) > 700.25)
+          return -1.;
+      }
+      break;
+
+    case PFLayer::PS1:
+      [[fallthrough]];
+    case PFLayer::PS2:
+      //Note Alex: Nothing implemented for the
+      //PreShower (No resolution maps yet)
+      return -1.;
+    default:
+      return -1.;
+  }
+
+  // Check that, if the cluster is in the endcap,
+  // 0) the track indeed points to the endcap at vertex (DISABLED)
+  // 1) the track extrapolation is in the endcap too !
+  // 2) the track is in the same end-cap !
+  // PJ - 10-May-09
+  if (!barrel) {
+    // if ( fabs(trackEta) < 1.0 ) return -1;
+    if (!hcal && std::abs(track_Z) < 300.)
+      return -1.;
+    if (track_Z * clusterZ < 0.)
+      return -1.;
+  }
+  // Check that, if the cluster is in the barrel,
+  // 1) the track is in the barrel too !
+  if (barrel) {
+    if (!hcal && std::abs(track_Z) > 300.)
+      return -1.;
+  }
+
+  double dist = LinkByRecHit::computeDist(clustereta, clusterphi, tracketa, trackphi);
+
+  //Testing if Track can be linked by rechit to a cluster.
+  //A cluster can be linked to a track if the extrapolated position
+  //of the track to the ECAL ShowerMax/HCAL entrance falls within
+  //the boundaries of any cell that belongs to this cluster.
+
+  const auto fracsNbr = cluster_table.get<cluster::FracsNbr>(icluster);
+
+  bool linkedbyrechit = false;
+  //loop rechits
+  for (size_t irechit : cluster_rechits) {
+    double fraction = rechit_table.get<rechit::Fraction>(irechit);
+    if (fraction < 1E-4)
+      continue;
+
+    if (barrel || hcal) {  // barrel case matching in eta/phi
+                           // (and HCAL endcap too!)
+
+      //rechit size determination
+      // blown up by 50% (HCAL) to 100% (ECAL) to include cracks & gaps
+      // also blown up to account for multiple scattering at low pt.
+      const auto& cornerEta = rechit_table.get<rechit::CornerEta>(irechit);
+      const auto& cornerPhi = rechit_table.get<rechit::CornerPhi>(irechit);
+      double rhsizeEta = std::abs(cornerEta[3] - cornerEta[1]);
+      double rhsizePhi = std::abs(reco::deltaPhi(cornerPhi[3], cornerPhi[1]));
+
+      if (hcal) {
+        const double mult = horesolscale * (1.50 + 0.5 / fracsNbr);
+        rhsizeEta = rhsizeEta * mult + 0.2 * std::abs(dHEta);
+        rhsizePhi = rhsizePhi * mult + 0.2 * std::abs(dHPhi);
+
+      } else {
+        const double mult = 2.00 + 1.0 / (fracsNbr * std::min(1., 0.5 * trackPt));
+        rhsizeEta *= mult;
+        rhsizePhi *= mult;
+      }
+
+      //distance track-rechit center
+      // const math::XYZPoint& posxyz
+      // = rechit_cluster.position();
+      double deta = std::abs(rechit_table.get<rechit::Eta>(irechit) - tracketa);
+      double dphi = std::abs(reco::deltaPhi(rechit_table.get<rechit::Phi>(irechit), trackphi));
+
+      if (deta < (0.5 * rhsizeEta) && dphi < (0.5 * rhsizePhi)) {
+        linkedbyrechit = true;
+        break;
+      }
+    } else {  //ECAL & PS endcap case, matching in X,Y
+
+      double x[5];
+      double y[5];
+
+      const auto& rechit_corner_posx = rechit_table.get<rechit::CornerX>(irechit);
+      const auto& rechit_corner_posy = rechit_table.get<rechit::CornerY>(irechit);
+
+      for (unsigned jc = 0; jc < 4; ++jc) {
+        const double mult = (1.00 + 0.50 / (fracsNbr * std::min(1., 0.5 * trackPt)));
+        x[3 - jc] = rechit_corner_posx[jc] + (rechit_corner_posx[jc] - rechit_table.get<rechit::Posx>(irechit)) * mult;
+        y[3 - jc] = rechit_corner_posy[jc] + (rechit_corner_posy[jc] - rechit_table.get<rechit::Posy>(irechit)) * mult;
+
+      }  //loop corners
+
+      //need to close the polygon in order to
+      //use the TMath::IsInside fonction from root lib
+      x[4] = x[0];
+      y[4] = y[0];
+
+      //Check if the extrapolation point of the track falls
+      //within the rechit boundaries
+      bool isinside = TMath::IsInside(track_X, track_Y, 5, x, y);
+
+      if (isinside) {
+        linkedbyrechit = true;
+        break;
+      }
+    }  //
+
+  }  //loop rechits
+
+  if (linkedbyrechit) {
+    return dist;
+  } else {
+    return -1.;
+  }
+}
+
 double LinkByRecHit::testECALAndPSByRecHit(const reco::PFCluster& clusterECAL,
                                            const reco::PFCluster& clusterPS,
                                            bool debug) {
@@ -512,6 +773,27 @@ double LinkByRecHit::testHFEMAndHFHADByRecHit(const reco::PFCluster& clusterHFEM
     double dist = sqrt(dist2);
     return dist;
     ;
+  } else
+    return -1.;
+}
+
+double LinkByRecHit::testHFEMAndHFHADByRecHit(size_t icluster_em,
+                                              size_t icluster_had,
+                                              ClusterXYZTableView cluster_em_table,
+                                              ClusterXYZTableView cluster_had_table) {
+  double sameZ = cluster_em_table.get<cluster::Posz>(icluster_em) * cluster_had_table.get<cluster::Posz>(icluster_had);
+  if (sameZ < 0)
+    return -1.;
+
+  double dX = cluster_em_table.get<cluster::Posx>(icluster_em) - cluster_had_table.get<cluster::Posx>(icluster_had);
+  double dY = cluster_em_table.get<cluster::Posy>(icluster_em) - cluster_had_table.get<cluster::Posy>(icluster_had);
+
+  double dist2 = dX * dX + dY * dY;
+
+  if (dist2 < 0.1) {
+    // less than one mm
+    double dist = sqrt(dist2);
+    return dist;
   } else
     return -1.;
 }

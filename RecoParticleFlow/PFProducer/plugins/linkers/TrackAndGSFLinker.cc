@@ -4,6 +4,8 @@
 #include "DataFormats/ParticleFlowReco/interface/PFBlockElementTrack.h"
 #include "RecoParticleFlow/PFClusterTools/interface/LinkByRecHit.h"
 
+using namespace edm::soa::col;
+
 class TrackAndGSFLinker : public BlockElementLinkerBase {
 public:
   TrackAndGSFLinker(const edm::ParameterSet& conf)
@@ -12,7 +14,13 @@ public:
         useConvertedBrems_(conf.getParameter<bool>("useConvertedBrems")),
         debug_(conf.getUntrackedParameter<bool>("debug", false)) {}
 
-  double testLink(const reco::PFBlockElement*, const reco::PFBlockElement*) const override;
+  double testLink(size_t ielem1,
+                  size_t ielem2,
+                  reco::PFBlockElement::Type type1,
+                  reco::PFBlockElement::Type type2,
+                  const ElementListConst& elements,
+                  const PFTables& tables,
+                  const reco::PFMultiLinksIndex& multilinks) const override;
 
 private:
   bool useKDTree_, useConvertedBrems_, debug_;
@@ -20,41 +28,50 @@ private:
 
 DEFINE_EDM_PLUGIN(BlockElementLinkerFactory, TrackAndGSFLinker, "TrackAndGSFLinker");
 
-double TrackAndGSFLinker::testLink(const reco::PFBlockElement* elem1, const reco::PFBlockElement* elem2) const {
-  constexpr reco::PFBlockElement::TrackType T_FROM_GAMMACONV = reco::PFBlockElement::T_FROM_GAMMACONV;
+double TrackAndGSFLinker::testLink(size_t ielem1,
+                                   size_t ielem2,
+                                   reco::PFBlockElement::Type type1,
+                                   reco::PFBlockElement::Type type2,
+                                   const ElementListConst& elements,
+                                   const PFTables& tables,
+                                   const reco::PFMultiLinksIndex& multilinks) const {
   double dist = -1.0;
-  const reco::PFBlockElementGsfTrack* gsfelem(nullptr);
-  const reco::PFBlockElementTrack* tkelem(nullptr);
-  if (elem1->type() < elem2->type()) {
-    tkelem = static_cast<const reco::PFBlockElementTrack*>(elem1);
-    gsfelem = static_cast<const reco::PFBlockElementGsfTrack*>(elem2);
-  } else {
-    tkelem = static_cast<const reco::PFBlockElementTrack*>(elem2);
-    gsfelem = static_cast<const reco::PFBlockElementGsfTrack*>(elem1);
-  }
+  const auto& ttv = tables.track_table_vertex;
 
-  const reco::PFRecTrackRef& trackref = tkelem->trackRefPF();
-  const reco::GsfPFRecTrackRef& gsfref = gsfelem->GsftrackRefPF();
-  const reco::TrackRef& kftrackref = trackref->trackRef();
-  const reco::TrackBaseRef kftrackrefbase(kftrackref);
-  const reco::PFRecTrackRef& refkf = gsfref->kfPFRecTrackRef();
-  if (refkf.isNonnull()) {
-    const reco::TrackRef& gsftrackref = refkf->trackRef();
-    if (gsftrackref.isNonnull() && kftrackref.isNonnull() && kftrackref == gsftrackref) {
+  size_t itrack_elem = 0;
+  size_t igsf_elem = 0;
+  if (type1 < type2) {
+    itrack_elem = ielem1;
+    igsf_elem = ielem2;
+  } else {
+    itrack_elem = ielem2;
+    igsf_elem = ielem1;
+  }
+  const size_t itrack = tables.element_to_track[itrack_elem];
+  const size_t igsf = tables.element_to_gsf[igsf_elem];
+
+  const auto kf_nn = ttv.get<pf::track::KfTrackRefIsNonNull>(itrack);
+  const auto kf_key = ttv.get<pf::track::KfTrackRefKey>(itrack);
+  const auto kf_base_key = ttv.get<pf::track::KfTrackRefBaseKey>(itrack);
+
+  if (tables.gsf_table.get<pf::track::KfPFRecTrackRefIsNonNull>(igsf)) {
+    const auto gsf_nn = tables.gsf_table.get<pf::track::KfTrackRefIsNonNull>(igsf);
+    const auto gsf_key = tables.gsf_table.get<pf::track::KfTrackRefKey>(igsf);
+
+    if (gsf_nn && kf_nn && kf_key == gsf_key) {
       dist = 0.001;
     }
   }
 
   //override for converted brems
   if (useConvertedBrems_) {
-    if (tkelem->isLinkedToDisplacedVertex()) {
-      const std::vector<reco::PFRecTrackRef>& convbrems = gsfref->convBremPFRecTrackRef();
-      for (const auto& convbrem : convbrems) {
-        if (tkelem->trackType(T_FROM_GAMMACONV) && kftrackref == convbrem->trackRef()) {
+    if (ttv.get<pf::track::IsLinkedToDisplacedVertex>(itrack)) {
+      for (size_t iconvbrem : tables.gsf_to_convbrem[igsf]) {
+        if (ttv.get<pf::track::TrackType_FROM_GAMMACONV>(itrack) &&
+            kf_key == tables.gsf_convbrem_table.get<pf::track::ConvBremRefKey>(iconvbrem)) {
           dist = 0.001;
         } else {  // check the base ref as well (for dedicated conversions?)
-          const reco::TrackBaseRef convbrembase(convbrem->trackRef());
-          if (convbrembase == kftrackrefbase) {
+          if (tables.gsf_convbrem_table.get<pf::track::ConvBremRefBaseKey>(iconvbrem) == kf_base_key) {
             dist = 0.001;
           }
         }

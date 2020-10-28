@@ -58,9 +58,16 @@ void PFBlockProducer::beginLuminosityBlock(edm::LuminosityBlock const& lb, edm::
 }
 
 void PFBlockProducer::produce(Event& iEvent, const EventSetup& iSetup) {
-  pfBlockAlgo_.buildElements(iEvent);
+  const auto& tables = pfBlockAlgo_.buildElements(iEvent);
 
-  auto blocks = pfBlockAlgo_.findBlocks();
+  const auto& blocks = pfBlockAlgo_.findBlocks(tables);
+
+#ifdef EDM_ML_DEBUG
+  LogDebug("PFBlockProducer") << "produced " << blocks.size() << " PFBlocks";
+  for (const auto& block : blocks) {
+    LogDebug("PFBlockProducer") << "block size=" << block.elements().size();
+  }
+#endif
 
   if (verbose_) {
     ostringstream str;
