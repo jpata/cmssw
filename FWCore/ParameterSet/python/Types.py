@@ -9,8 +9,13 @@ import copy
 import math
 import six
 from six.moves import builtins
+import inspect
 
 _builtin_bool = bool
+
+def getLineInfo():
+    st = inspect.stack()[2]
+    return "{}:{}:{}".format(st[1],st[2],st[3])
 
 class _Untracked(object):
     """Class type for 'untracked' to allow nice syntax"""
@@ -915,6 +920,20 @@ class PSet(_ParameterTypeBase,_Parameterizable,_ConfigureComponent,_Labelable):
         else:
             super(PSet, self).insertContentsInto(parameterSet)
 
+    def __setattr__(self, name, value):
+
+        stack = inspect.stack()
+        
+        #check for PSet update case (which is fine)
+        modparam = False
+        if len(stack) > 2:
+            modparam = stack[2][3] == "_modifyParametersFromDict"
+        
+        if not (name.startswith("_") or modparam):
+            #print(name, value, modparam, type(value))
+            if name in self.__dict__ and inspect.isclass(type(value)):
+                print("unsafe override of '{}' in {}".format(name, getLineInfo()))
+        self.__dict__[name] = value
 
 class vint32(_ValidatingParameterListBase):
     def __init__(self,*arg,**args):

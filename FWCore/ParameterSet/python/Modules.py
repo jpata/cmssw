@@ -3,7 +3,7 @@ from .Mixins import _ConfigureComponent, saveOrigin
 from .Mixins import _Unlabelable, _Labelable
 from .Mixins import _TypedParameterizable, _Parameterizable, PrintOptions, specialImportRegistry
 from .SequenceTypes import _SequenceLeaf
-from .Types import vstring, EDAlias
+from .Types import vstring, EDAlias, getLineInfo
 
 
 import six
@@ -160,6 +160,21 @@ class _Module(_ConfigureComponent,_TypedParameterizable,_Labelable,_SequenceLeaf
             ext = platform.uname()[0] == "Darwin" and "dylib" or "so"
             [loader.LoadLibrary("lib%s.%s" % (l, ext)) for l in self.libraries_]
         super(_Module,self).insertInto(parameterSet,myname)
+    
+    def __setattr__(self, name, value):
+        import inspect
+        stack = inspect.stack()
+        
+        #check for PSet update case (which is fine)
+        modparam = False
+        if len(stack) > 2:
+            modparam = stack[2][3] == "_modifyParametersFromDict"
+        
+        if not (name.startswith("_") or modparam):
+            #print(name, value, modparam, type(value))
+            if name in self.__dict__ and inspect.isclass(type(value)):
+                print("unsafe override of '{}' in {}".format(name, getLineInfo()))
+        self.__dict__[name] = value
 
 class EDProducer(_Module):
     def __init__(self,type_,*arg,**kargs):
