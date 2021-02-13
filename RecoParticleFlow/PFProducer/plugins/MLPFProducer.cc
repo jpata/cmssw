@@ -107,7 +107,7 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
       auto pred_logit = out_arr(0, ielem, idx_id);
       assert(!std::isnan(pred_logit));
       pred_id_logits.push_back(pred_logit);
-      std::cout << pred_logit << " ";
+      //std::cout << pred_logit << " ";
     }
 
     //get the most probable class PDGID
@@ -118,9 +118,9 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
     const reco::PFBlockElement* elem = all_elements[ielem];
     //std::cout << " pid=" << pred_pid << " type=" << elem->type() << std::endl;
 
-    //at the moment, I don't know what kind of specific configuration of refs the muons expect downstream of PF
-    //so I reconstruct them as charged hadrons to avoid crashes downstream.
-    //this needs debugging of the downstream reco modules to understand what references exactly they expect for a PFCandidate that is a muon
+    //at the moment, I don't know what kind of specific configuration of refs & other metadata the muons expect downstream of PF
+    //so I currently reconstruct them as charged hadrons as a workaround to avoid crashes downstream.
+    //this needs debugging of the downstream reco modules to understand what defined a PFCandidate muon, besides the 4-momentum
     if (pred_pid == 13) {
       pred_pid = 211;
     }
@@ -133,12 +133,12 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
     if (elem->type()==reco::PFBlockElement::TRACK) {
       const auto* eltTrack = dynamic_cast<const reco::PFBlockElementTrack*>(elem);
 
-      //a track with no muon ref should not produce a muon candidate
+      //a track with no muon ref should not produce a muon candidate, instead we interpret it as a charged hadron
       if (pred_pid == 13 && eltTrack->muonRef().isNull()) {
         pred_pid = 211;
       }
 
-      //these need reference debugging downstream as well, so we just treat them as neutrals for the moment
+      //tracks from displaced vertices need reference debugging downstream as well, so we just treat them as neutrals for the moment
       if ((pred_pid==211) && (eltTrack->isLinkedToDisplacedVertex())) {
         pred_pid = 130;
       }
