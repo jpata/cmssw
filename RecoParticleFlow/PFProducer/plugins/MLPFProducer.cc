@@ -7,6 +7,8 @@
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
 #include "RecoParticleFlow/PFProducer/interface/MLPFModel.h"
 
+#include "DataFormats/ParticleFlowReco/interface/PFBlockElementTrack.h"
+
 struct MLPFCache {
   const tensorflow::GraphDef* graph_def;
 };
@@ -45,7 +47,10 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
 
   //tensor size must be a multiple of the bin size and larger than the number of elements
   const auto tensor_size = LSH_BIN_SIZE * (num_elements_total / LSH_BIN_SIZE + 1);
+  //const auto tensor_size = 6400;
   assert(tensor_size <= NUM_MAX_ELEMENTS_BATCH);
+  assert(tensor_size % LSH_BIN_SIZE == 0);
+  //std::cout << "tensor_size=" << tensor_size << std::endl;
 
   //Create the input tensor
   tensorflow::TensorShape shape({BATCH_SIZE, tensor_size, NUM_ELEMENT_FEATURES});
@@ -55,7 +60,15 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
   //Fill the input tensor
   unsigned int ielem = 0;
   for (const auto* pelem : all_elements) {
+    if (ielem > tensor_size) {
+      continue;
+    }
+
     const auto& elem = *pelem;
+
+    // if (elem.type() == reco::PFBlockElement::PS1 || elem.type() == reco::PFBlockElement::PS2) {
+    //   continue;
+    // }
 
     //prepare the input array from the PFElement
     const auto& props = getElementProperties(elem);
@@ -66,6 +79,7 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
     }
     ielem += 1;
   }
+  //std::cout << "ielem=" << ielem << std::endl;
 
   //TF model input and output tensor names
   const tensorflow::NamedTensorList input_list = {{"x:0", input}};
@@ -89,22 +103,59 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
   for (unsigned int ielem = 0; ielem < all_elements.size(); ielem++) {
     //get the coefficients in the output corresponding to the class probabilities (raw logits)
     std::vector<float> pred_id_logits;
-    for (unsigned int idx_id = 0; idx_id <= NUM_CLASS; idx_id++) {
-      pred_id_logits.push_back(out_arr(0, ielem, idx_id));
+    for (unsigned int idx_id = 0; idx_id <= IDX_CLASS; idx_id++) {
+      auto pred_logit = out_arr(0, ielem, idx_id);
+      assert(!std::isnan(pred_logit));
+      pred_id_logits.push_back(pred_logit);
+      std::cout << pred_logit << " ";
     }
 
     //get the most probable class PDGID
     int pred_pid = pdgid_encoding[argMax(pred_id_logits)];
 
+    // if the charged candidate is generated from a track linked to a displaced vertex, we get
+    // JetTracksAssociatorExplicit/'ak4JetTracksAssociatorExplicitAll' -> Ref is inconsistent with RefVectorid
+    const reco::PFBlockElement* elem = all_elements[ielem];
+    //std::cout << " pid=" << pred_pid << " type=" << elem->type() << std::endl;
+
+    //at the moment, I don't know what kind of specific configuration of refs the muons expect downstream of PF
+    //so I reconstruct them as charged hadrons to avoid crashes downstream.
+    //this needs debugging of the downstream reco modules to understand what references exactly they expect for a PFCandidate that is a muon
+    if (pred_pid == 13) {
+      pred_pid = 211;
+    }
+
+    //muons and charged hadrons should only come from tracks, otherwise we won't have references to pass downstream
+    if (((pred_pid == 13) || (pred_pid==211)) && elem->type()!=reco::PFBlockElement::TRACK) {
+      pred_pid = 130;
+    }
+
+    if (elem->type()==reco::PFBlockElement::TRACK) {
+      const auto* eltTrack = dynamic_cast<const reco::PFBlockElementTrack*>(elem);
+
+      //a track with no muon ref should not produce a muon candidate
+      if (pred_pid == 13 && eltTrack->muonRef().isNull()) {
+        pred_pid = 211;
+      }
+
+      //these need reference debugging downstream as well, so we just treat them as neutrals for the moment
+      if ((pred_pid==211) && (eltTrack->isLinkedToDisplacedVertex())) {
+        pred_pid = 130;
+      }
+    }
+
     //get the predicted momentum components
+    float pred_pt = out_arr(0, ielem, IDX_PT);
     float pred_eta = out_arr(0, ielem, IDX_ETA);
-    float pred_phi = out_arr(0, ielem, IDX_PHI);
-    float pred_charge = out_arr(0, ielem, IDX_CHARGE);
+    float pred_sin_phi = out_arr(0, ielem, IDX_SIN_PHI);
+    float pred_cos_phi = out_arr(0, ielem, IDX_COS_PHI);
     float pred_e = out_arr(0, ielem, IDX_ENERGY);
+    float pred_charge = out_arr(0, ielem, IDX_CHARGE);
 
     //a particle was predicted for this PFElement, otherwise it was a spectator
     if (pred_pid != 0) {
-      auto cand = makeCandidate(pred_pid, pred_charge, pred_e, pred_eta, pred_phi);
+      //std::cout << pred_charge << " " << pred_pt << " " << pred_eta << " " << pred_sin_phi << " " << pred_cos_phi << " " << pred_e << std::endl;
+      auto cand = makeCandidate(pred_pid, pred_charge, pred_pt, pred_eta, pred_sin_phi, pred_cos_phi, pred_e);
       setCandidateRefs(cand, all_elements, ielem);
       pOutputCandidateCollection.push_back(cand);
     }
@@ -132,7 +183,7 @@ void MLPFProducer::globalEndJob(MLPFCache* cache) { delete cache->graph_def; }
 void MLPFProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("src", edm::InputTag("particleFlowBlock"));
-  desc.add<std::string>("model_path", "RecoParticleFlow/PFProducer/data/mlpf/mlpf_2020_11_04.pb");
+  desc.add<std::string>("model_path", "RecoParticleFlow/PFProducer/data/mlpf/mlpf_2021_02_12.pb");
   descriptions.addWithDefaultLabel(desc);
 }
 
