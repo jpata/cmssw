@@ -37,6 +37,20 @@ MLPFProducer::MLPFProducer(const edm::ParameterSet& cfg, const MLPFCache* cache)
   session_ = tensorflow::createSession(cache->graph_def);
 }
 
+std::vector<float> softmax(std::vector<float> logits) {
+    std::vector<float> exps;
+    float norm = 0.0; 
+    for (auto v : logits) {
+        const auto ev = std::exp(v);
+        exps.push_back(ev);
+        norm += ev;
+    }
+    for (size_t i=0; i<exps.size(); i++) {
+        exps[i] /= norm;
+    }
+    return exps;
+}
+
 void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
   using namespace reco::mlpf;
 
@@ -110,8 +124,15 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
       //std::cout << pred_logit << " ";
     }
 
+    const auto& pred_id_logits_sm = softmax(pred_id_logits);
+    std::cout << "pred_id: ";
+    for (auto v : pred_id_logits_sm) {
+      std::cout << v << " ";
+    }
+    std::cout << std::endl;
+    auto imax = argMax(pred_id_logits_sm);
     //get the most probable class PDGID
-    int pred_pid = pdgid_encoding[argMax(pred_id_logits)];
+    int pred_pid = pred_id_logits_sm[imax] > 0.85 ? pdgid_encoding[imax] : 0;
 
     // if the charged candidate is generated from a track linked to a displaced vertex, we get
     // JetTracksAssociatorExplicit/'ak4JetTracksAssociatorExplicitAll' -> Ref is inconsistent with RefVectorid
@@ -154,7 +175,12 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
 
     //a particle was predicted for this PFElement, otherwise it was a spectator
     if (pred_pid != 0) {
-      //std::cout << pred_charge << " " << pred_pt << " " << pred_eta << " " << pred_sin_phi << " " << pred_cos_phi << " " << pred_e << std::endl;
+
+      std::cout << "type=" << elem->type() << " pid=" << pred_pid << " "
+          << pred_charge << " " << pred_pt << " " << pred_eta << " "
+          << pred_sin_phi << " " << pred_cos_phi << " "
+          << pred_e << std::endl;
+          
       auto cand = makeCandidate(pred_pid, pred_charge, pred_pt, pred_eta, pred_sin_phi, pred_cos_phi, pred_e);
       setCandidateRefs(cand, all_elements, ielem);
       pOutputCandidateCollection.push_back(cand);
@@ -183,7 +209,7 @@ void MLPFProducer::globalEndJob(MLPFCache* cache) { delete cache->graph_def; }
 void MLPFProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("src", edm::InputTag("particleFlowBlock"));
-  desc.add<std::string>("model_path", "RecoParticleFlow/PFProducer/data/mlpf/mlpf_2021_02_12.pb");
+  desc.add<std::string>("model_path", "RecoParticleFlow/PFProducer/data/mlpf/mlpf_2021_03_04.pb");
   descriptions.addWithDefaultLabel(desc);
 }
 
