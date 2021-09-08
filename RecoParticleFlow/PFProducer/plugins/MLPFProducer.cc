@@ -24,13 +24,11 @@ public:
 private:
   const edm::EDPutTokenT<reco::PFCandidateCollection> pfCandidatesPutToken_;
   const edm::EDGetTokenT<reco::PFBlockCollection> inputTagBlocks_;
-  std::vector<double> multiclass_thresholds_;
 };
 
 MLPFProducer::MLPFProducer(const edm::ParameterSet& cfg, const ONNXRuntime* cache)
     : pfCandidatesPutToken_{produces<reco::PFCandidateCollection>()},
-      inputTagBlocks_(consumes<reco::PFBlockCollection>(cfg.getParameter<edm::InputTag>("src"))),
-      multiclass_thresholds_(cfg.getParameter<std::vector<double>>("multiclass_thresholds")) {
+      inputTagBlocks_(consumes<reco::PFBlockCollection>(cfg.getParameter<edm::InputTag>("src"))) {
 }
 
 void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
@@ -51,12 +49,11 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
   assert(num_elements_total < NUM_MAX_ELEMENTS_BATCH);
 
   //tensor size must be a multiple of the bin size and larger than the number of elements
-  const auto tensor_size = LSH_BIN_SIZE * (num_elements_total / LSH_BIN_SIZE + 1);
-  //const auto tensor_size = 6400;
+  const auto tensor_size = LSH_BIN_SIZE * std::max(2u, (num_elements_total / LSH_BIN_SIZE + 1));
   assert(tensor_size <= NUM_MAX_ELEMENTS_BATCH);
   assert(tensor_size % LSH_BIN_SIZE == 0);
 
-  std::cout << "tensor_size=" << tensor_size << std::endl;
+  // std::cout << "tensor_size=" << tensor_size << std::endl;
 
   //Fill the input tensor (batch, elems, features) = (1, tensor_size, NUM_ELEMENT_FEATURES)
   std::vector<std::vector<float>> inputs(1, std::vector<float>(NUM_ELEMENT_FEATURES*tensor_size, 0.0));
@@ -86,12 +83,10 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
   std::vector<reco::PFCandidate> pOutputCandidateCollection;
   for (size_t ielem=0; ielem<num_elements_total; ielem++) {
     std::vector<float> pred_id_probas(IDX_CLASS+1, 0.0);
+    const reco::PFBlockElement* elem = selected_elements[ielem];
 
     for (unsigned int idx_id = 0; idx_id <= IDX_CLASS; idx_id++) {
         auto pred_proba = output[ielem*NUM_OUTPUT_FEATURES + idx_id];
-        if (pred_proba < static_cast<float>(multiclass_thresholds_[idx_id])) {
-            pred_proba = 0.0;
-        }
         assert(!std::isnan(pred_proba));
         pred_id_probas[idx_id] = pred_proba;
     }
@@ -101,12 +96,19 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
     //get the most probable class PDGID
     int pred_pid = pdgid_encoding[imax];
 
+    // std::cout << "type=" << elem->type() << " imax=" << imax << " pid=" << pred_pid;
+    // int iprob = 0;
+    // for (auto p : pred_id_probas) {
+    //     std::cout << " " << iprob << "=" << p;
+    //     iprob += 1;
+    // }
+    // std::cout << std::endl;
+
     //a particle was predicted for this PFElement, otherwise it was a spectator
     if (pred_pid != 0) {
 
       // if the charged candidate is generated from a track linked to a displaced vertex, we get
       // JetTracksAssociatorExplicit/'ak4JetTracksAssociatorExplicitAll' -> Ref is inconsistent with RefVectorid
-      const reco::PFBlockElement* elem = selected_elements[ielem];
 
       //at the moment, I don't know what kind of specific configuration of refs & other metadata the muons expect downstream of PF
       //so I currently reconstruct them as charged hadrons as a workaround to avoid crashes downstream.
@@ -115,7 +117,7 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
         pred_pid = 211;
       }
 
-      //muons and charged hadrons should only come from tracks, otherwise we won't have references to pass downstream
+      //muons and charged hadrons should only come from tracks, otherwise we won't have track references to pass downstream
       if (((pred_pid == 13) || (pred_pid==211)) && elem->type()!=reco::PFBlockElement::TRACK) {
         pred_pid = 130;
       }
@@ -142,10 +144,10 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
       float pred_e = output[ielem*NUM_OUTPUT_FEATURES + IDX_ENERGY];
       float pred_charge = output[ielem*NUM_OUTPUT_FEATURES + IDX_CHARGE];
 
-      std::cout << "type=" << elem->type() << " pid=" << pred_pid << " "
-          << pred_charge << " " << pred_pt << " " << pred_eta << " "
-          << pred_sin_phi << " " << pred_cos_phi << " "
-          << pred_e << std::endl;
+      // std::cout << "type=" << elem->type() << " pid=" << pred_pid << " "
+      //     << pred_charge << " " << pred_pt << " " << pred_eta << " "
+      //     << pred_sin_phi << " " << pred_cos_phi << " "
+      //     << pred_e << std::endl;
           
       auto cand = makeCandidate(pred_pid, pred_charge, pred_pt, pred_eta, pred_sin_phi, pred_cos_phi, pred_e);
       setCandidateRefs(cand, selected_elements, ielem);
@@ -166,8 +168,6 @@ void MLPFProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("src", edm::InputTag("particleFlowBlock"));
   desc.add<edm::FileInPath>("model_path", edm::FileInPath("RecoParticleFlow/PFProducer/data/mlpf/mlpf_2021_06_28.onnx"));
-  const std::vector<double> thresholds({0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
-  desc.add<std::vector<double>>("multiclass_thresholds", thresholds);
   descriptions.addWithDefaultLabel(desc);
 }
 
