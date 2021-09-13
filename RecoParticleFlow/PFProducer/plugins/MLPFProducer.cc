@@ -11,6 +11,9 @@
 
 using namespace cms::Ort;
 
+//use this to switch on detailed print statements in MLPF
+//#define MLPF_DEBUG
+
 class MLPFProducer : public edm::stream::EDProducer<edm::GlobalCache<ONNXRuntime> > {
 public:
   explicit MLPFProducer(const edm::ParameterSet&, const ONNXRuntime*);
@@ -53,7 +56,9 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
   assert(tensor_size <= NUM_MAX_ELEMENTS_BATCH);
   assert(tensor_size % LSH_BIN_SIZE == 0);
 
-  // std::cout << "tensor_size=" << tensor_size << std::endl;
+  #ifdef MLPF_DEBUG
+  std::cout << "tensor_size=" << tensor_size << std::endl;
+  #endif
 
   //Fill the input tensor (batch, elems, features) = (1, tensor_size, NUM_ELEMENT_FEATURES)
   std::vector<std::vector<float>> inputs(1, std::vector<float>(NUM_ELEMENT_FEATURES*tensor_size, 0.0));
@@ -96,13 +101,14 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
     //get the most probable class PDGID
     int pred_pid = pdgid_encoding[imax];
 
-    // std::cout << "type=" << elem->type() << " imax=" << imax << " pid=" << pred_pid;
-    // int iprob = 0;
-    // for (auto p : pred_id_probas) {
-    //     std::cout << " " << iprob << "=" << p;
-    //     iprob += 1;
-    // }
-    // std::cout << std::endl;
+    #ifdef MLPF_DEBUG
+    std::cout << "ielem=" << ielem << " inputs:";
+    for (unsigned int iprop = 0; iprop < NUM_ELEMENT_FEATURES; iprop++) {
+      std::cout << iprop << "=" << inputs[0][ielem*NUM_ELEMENT_FEATURES + iprop] << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "ielem=" << ielem << " pred: pid=" << pred_pid << std::endl;
+    #endif
 
     //a particle was predicted for this PFElement, otherwise it was a spectator
     if (pred_pid != 0) {
@@ -113,9 +119,9 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
       //at the moment, I don't know what kind of specific configuration of refs & other metadata the muons expect downstream of PF
       //so I currently reconstruct them as charged hadrons as a workaround to avoid crashes downstream.
       //this needs debugging of the downstream reco modules to understand what defines a PFCandidate muon besides the 4-momentum
-      if (pred_pid == 13) {
-        pred_pid = 211;
-      }
+      // if (pred_pid == 13) {
+      //   pred_pid = 211;
+      // }
 
       //muons and charged hadrons should only come from tracks, otherwise we won't have track references to pass downstream
       if (((pred_pid == 13) || (pred_pid==211)) && elem->type()!=reco::PFBlockElement::TRACK) {
@@ -131,7 +137,7 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
         }
 
         //tracks from displaced vertices need reference debugging downstream as well, so we just treat them as neutrals for the moment
-        if ((pred_pid==211) && (eltTrack->isLinkedToDisplacedVertex())) {
+        if ((pred_pid == 211) && (eltTrack->isLinkedToDisplacedVertex())) {
           pred_pid = 130;
         }
       }
@@ -143,15 +149,17 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
       float pred_cos_phi = output[ielem*NUM_OUTPUT_FEATURES + IDX_COS_PHI];
       float pred_e = output[ielem*NUM_OUTPUT_FEATURES + IDX_ENERGY];
       float pred_charge = output[ielem*NUM_OUTPUT_FEATURES + IDX_CHARGE];
-
-      // std::cout << "type=" << elem->type() << " pid=" << pred_pid << " "
-      //     << pred_charge << " " << pred_pt << " " << pred_eta << " "
-      //     << pred_sin_phi << " " << pred_cos_phi << " "
-      //     << pred_e << std::endl;
           
       auto cand = makeCandidate(pred_pid, pred_charge, pred_pt, pred_eta, pred_sin_phi, pred_cos_phi, pred_e);
       setCandidateRefs(cand, selected_elements, ielem);
       pOutputCandidateCollection.push_back(cand);
+
+      #ifdef MLPF_DEBUG
+      std::cout << "ielem=" << ielem << " cand: pid=" << cand.pdgId()
+        << " E=" << cand.energy() << " pt=" << cand.pt()
+        << " eta=" << cand.eta() << " phi=" << cand.phi()
+        << " charge=" << cand.charge() << std::endl;
+      #endif
     }
   }  //loop over PFElements
 

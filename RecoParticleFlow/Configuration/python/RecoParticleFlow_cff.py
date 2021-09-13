@@ -89,5 +89,5 @@ for e in [pp_on_XeXe_2017, pp_on_AA]:
 from Configuration.ProcessModifiers.mlpf_cff import mlpf
 from RecoParticleFlow.PFProducer.mlpfProducer_cfi import mlpfProducer
 #classification thresholds for multiclass: (no particle, ch. had, n.had, HFEM, HFHAD, photon, electron, muon
-mlpfProducer.model_path = "RecoParticleFlow/PFProducer/data/mlpf/mlpf_2021_09_08.onnx"
+mlpfProducer.model_path = "RecoParticleFlow/PFProducer/data/mlpf/mlpf_2021_09_10.onnx"
 mlpf.toReplaceWith(particleFlowTmp, mlpfProducer)
