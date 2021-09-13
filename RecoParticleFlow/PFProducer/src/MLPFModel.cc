@@ -229,7 +229,7 @@ namespace reco::mlpf {
     }
     
     //set the muon ref
-    if (std::abs(cand.pdgId()==13)) {
+    if (std::abs(cand.pdgId())==13) {
       const auto* eltTrack = dynamic_cast<const reco::PFBlockElementTrack*>(elem);
       const auto& muonRef = eltTrack->muonRef();
       cand.setTrackRef(muonRef->track());
