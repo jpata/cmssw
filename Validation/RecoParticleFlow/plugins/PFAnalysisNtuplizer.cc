@@ -33,6 +33,8 @@
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingParticle.h"
 #include "DataFormats/RecoCandidate/interface/TrackAssociation.h"
 #include "DataFormats/ParticleFlowReco/interface/PFBlock.h"
+#include "DataFormats/EgammaReco/interface/SuperCluster.h"
+#include "DataFormats/EgammaReco/interface/ElectronSeed.h"
 
 #include "DataFormats/Math/interface/deltaPhi.h"
 #include "DataFormats/TrackReco/interface/Track.h"
@@ -243,6 +245,9 @@ private:
   vector<float> element_trajpoint_;
   vector<float> element_muon_dt_hits_;
   vector<float> element_muon_csc_hits_;
+  vector<float> element_muon_type_;
+  vector<float> element_gsf_brem_sc_energy_;
+  vector<float> element_num_hits_;
 
   vector<int> element_distance_i_;
   vector<int> element_distance_j_;
@@ -391,6 +396,9 @@ PFAnalysis::PFAnalysis(const edm::ParameterSet& iConfig) {
   t_->Branch("element_trajpoint", &element_trajpoint_);
   t_->Branch("element_muon_dt_hits", &element_muon_dt_hits_);
   t_->Branch("element_muon_csc_hits", &element_muon_csc_hits_);
+  t_->Branch("element_muon_type", &element_muon_type_);
+  t_->Branch("element_gsf_brem_sc_energy", &element_gsf_brem_sc_energy_);
+  t_->Branch("element_num_hits", &element_num_hits_);
 
   //Distance matrix between PF elements
   t_->Branch("element_distance_i", &element_distance_i_);
@@ -521,6 +529,9 @@ void PFAnalysis::clearVariables() {
   element_trajpoint_.clear();
   element_muon_dt_hits_.clear();
   element_muon_csc_hits_.clear();
+  element_muon_type_.clear();
+  element_gsf_brem_sc_energy_.clear();
+  element_num_hits_.clear();
 
   element_distance_i_.clear();
   element_distance_j_.clear();
@@ -750,6 +761,9 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     float depth = 0;
     float muon_dt_hits = 0.0;
     float muon_csc_hits = 0.0;
+    float muon_type = 0.0;
+    float gsf_brem_sc_energy = 0.0;
+    float num_hits = 0.0;
 
     if (type == reco::PFBlockElement::TRACK) {
       const auto& matched_pftrack = orig.trackRefPF();
@@ -774,6 +788,7 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       phi = ref->phi();
       energy = ref->p();
       charge = ref->charge();
+      num_hits = ref->recHitsSize();
 
       reco::MuonRef muonRef = orig.muonRef();
       if (muonRef.isNonnull()) {
@@ -782,6 +797,7 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
           muon_dt_hits = standAloneMu->hitPattern().numberOfValidMuonDTHits();
           muon_csc_hits = standAloneMu->hitPattern().numberOfValidMuonCSCHits();
         }
+        muon_type = muonRef->type();
       }
 
     } else if (type == reco::PFBlockElement::BREM) {
@@ -800,6 +816,18 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
         trajpoint = orig2->indTrajPoint();
         charge = ref->charge();
       }
+
+      const auto& gsfextraref = ref->extra();
+      if (gsfextraref.isAvailable() && gsfextraref->seedRef().isAvailable()) {
+        reco::ElectronSeedRef seedref = gsfextraref->seedRef().castTo<reco::ElectronSeedRef>();
+        if (seedref.isAvailable() && seedref->isEcalDriven()) {
+          reco::SuperClusterRef scref = seedref->caloCluster().castTo<reco::SuperClusterRef>();
+          if (scref.isNonnull()) {
+            gsf_brem_sc_energy = scref->energy();
+          }
+        }
+      };
+
     } else if (type == reco::PFBlockElement::GSF) {
       //requires to keep GsfPFRecTracks
       const auto* orig2 = (const reco::PFBlockElementGsfTrack*)&orig;
@@ -811,9 +839,29 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       eta = vec.eta();
       phi = vec.phi();
       energy = vec.energy();
+
+      const auto& vec2 = orig2->Pout();
+      eta_ecal = vec2.eta();
+      phi_ecal = vec2.phi();
+
       if (!orig2->GsftrackRefPF().isNull()) {
         charge = orig2->GsftrackRefPF()->charge();
+        num_hits = orig2->GsftrackRefPF()->PFRecBrem().size();
       }
+
+      const auto& ref = orig2->GsftrackRef();
+
+      const auto& gsfextraref = ref->extra();
+      if (gsfextraref.isAvailable() && gsfextraref->seedRef().isAvailable()) {
+        reco::ElectronSeedRef seedref = gsfextraref->seedRef().castTo<reco::ElectronSeedRef>();
+        if (seedref.isAvailable() && seedref->isEcalDriven()) {
+          reco::SuperClusterRef scref = seedref->caloCluster().castTo<reco::SuperClusterRef>();
+          if (scref.isNonnull()) {
+            gsf_brem_sc_energy = scref->energy();
+          }
+        }
+      };
+
     } else if (type == reco::PFBlockElement::ECAL || type == reco::PFBlockElement::PS1 ||
                type == reco::PFBlockElement::PS2 || type == reco::PFBlockElement::HCAL ||
                type == reco::PFBlockElement::HO || type == reco::PFBlockElement::HFHAD ||
@@ -828,6 +876,7 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
         energy = ref->energy();
         layer = ref->layer();
         depth = ref->depth();
+        num_hits = ref->recHitFractions().size();
       }
     } else if (type == reco::PFBlockElement::SC) {
       const auto& clref = ((const reco::PFBlockElementSuperCluster*)&orig)->superClusterRef();
@@ -838,6 +887,7 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
         py = clref->position().y();
         pz = clref->position().z();
         energy = clref->energy();
+        num_hits = clref->clustersSize();
       }
     }
     vector<int> tps;
@@ -873,6 +923,9 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     element_trajpoint_.push_back(trajpoint);
     element_muon_dt_hits_.push_back(muon_dt_hits);
     element_muon_csc_hits_.push_back(muon_csc_hits);
+    element_muon_type_.push_back(muon_type);
+    element_gsf_brem_sc_energy_.push_back(gsf_brem_sc_energy);
+    element_num_hits_.push_back(num_hits);
   }
 
   //associate candidates to elements
