@@ -7,7 +7,7 @@
 
 namespace reco::mlpf {
   //The model takes the following number of features for each input PFElement
-  static constexpr unsigned int NUM_ELEMENT_FEATURES = 15;
+  static constexpr unsigned int NUM_ELEMENT_FEATURES = 18;
   static constexpr unsigned int NUM_OUTPUT_FEATURES = 14;
 
   //these are defined at model creation time and set the random LSH codebook size

@@ -8,6 +8,8 @@
 #include "DataFormats/ParticleFlowReco/interface/PFBlockElementTrack.h"
 #include "DataFormats/ParticleFlowReco/interface/PFBlockElementBrem.h"
 #include "DataFormats/ParticleFlowReco/interface/PFBlockElementCluster.h"
+#include "DataFormats/EgammaReco/interface/SuperCluster.h"
+#include "DataFormats/EgammaReco/interface/ElectronSeed.h"
 
 namespace reco::mlpf {
 
@@ -34,6 +36,9 @@ namespace reco::mlpf {
     float depth = 0;
     float muon_dt_hits = 0.0;
     float muon_csc_hits = 0.0;
+    float muon_type = 0.0;
+    float gsf_brem_sc_energy = 0.0;
+    float num_hits = 0.0;
 
     if (type == reco::PFBlockElement::TRACK) {
       const auto& matched_pftrack = orig.trackRefPF();
@@ -58,6 +63,7 @@ namespace reco::mlpf {
       phi = ref->phi();
       energy = ref->p();
       charge = ref->charge();
+      num_hits = ref->recHitsSize();
 
       reco::MuonRef muonRef = orig.muonRef();
       if (muonRef.isNonnull()) {
@@ -66,6 +72,7 @@ namespace reco::mlpf {
           muon_dt_hits = standAloneMu->hitPattern().numberOfValidMuonDTHits();
           muon_csc_hits = standAloneMu->hitPattern().numberOfValidMuonCSCHits();
         }
+        muon_type = muonRef->type();
       }
 
     } else if (type == reco::PFBlockElement::BREM) {
@@ -84,6 +91,18 @@ namespace reco::mlpf {
         trajpoint = orig2->indTrajPoint();
         charge = ref->charge();
       }
+
+      const auto& gsfextraref = ref->extra();
+      if (gsfextraref.isAvailable() && gsfextraref->seedRef().isAvailable()) {
+        reco::ElectronSeedRef seedref = gsfextraref->seedRef().castTo<reco::ElectronSeedRef>();
+        if (seedref.isAvailable() && seedref->isEcalDriven()) {
+          reco::SuperClusterRef scref = seedref->caloCluster().castTo<reco::SuperClusterRef>();
+          if (scref.isNonnull()) {
+            gsf_brem_sc_energy = scref->energy();
+          }
+        }
+      };
+
     } else if (type == reco::PFBlockElement::GSF) {
       //requires to keep GsfPFRecTracks
       const auto* orig2 = (const reco::PFBlockElementGsfTrack*)&orig;
@@ -95,9 +114,29 @@ namespace reco::mlpf {
       eta = vec.eta();
       phi = vec.phi();
       energy = vec.energy();
+
+      const auto& vec2 = orig2->Pout();
+      eta_ecal = vec2.eta();
+      phi_ecal = vec2.phi();
+
       if (!orig2->GsftrackRefPF().isNull()) {
         charge = orig2->GsftrackRefPF()->charge();
+        num_hits = orig2->GsftrackRefPF()->PFRecBrem().size();
       }
+
+      const auto& ref = orig2->GsftrackRef();
+
+      const auto& gsfextraref = ref->extra();
+      if (gsfextraref.isAvailable() && gsfextraref->seedRef().isAvailable()) {
+        reco::ElectronSeedRef seedref = gsfextraref->seedRef().castTo<reco::ElectronSeedRef>();
+        if (seedref.isAvailable() && seedref->isEcalDriven()) {
+          reco::SuperClusterRef scref = seedref->caloCluster().castTo<reco::SuperClusterRef>();
+          if (scref.isNonnull()) {
+            gsf_brem_sc_energy = scref->energy();
+          }
+        }
+      };
+
     } else if (type == reco::PFBlockElement::ECAL || type == reco::PFBlockElement::PS1 ||
                type == reco::PFBlockElement::PS2 || type == reco::PFBlockElement::HCAL ||
                type == reco::PFBlockElement::HO || type == reco::PFBlockElement::HFHAD ||
@@ -112,6 +151,7 @@ namespace reco::mlpf {
         energy = ref->energy();
         layer = ref->layer();
         depth = ref->depth();
+        num_hits = ref->recHitFractions().size();
       }
     } else if (type == reco::PFBlockElement::SC) {
       const auto& clref = ((const reco::PFBlockElementSuperCluster*)&orig)->superClusterRef();
@@ -122,6 +162,7 @@ namespace reco::mlpf {
         py = clref->position().y();
         pz = clref->position().z();
         energy = clref->energy();
+        num_hits = clref->clustersSize();
       }
     }
 
@@ -142,7 +183,10 @@ namespace reco::mlpf {
                                                      eta_hcal,
                                                      phi_hcal,
                                                      muon_dt_hits,
-                                                     muon_csc_hits}});
+                                                     muon_csc_hits,
+                                                     muon_type,
+                                                     gsf_brem_sc_energy,
+                                                     num_hits}});
   }
 
   //to make sure DNN inputs are within numerical bounds, use the same in training
