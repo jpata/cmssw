@@ -12,7 +12,7 @@ namespace reco::mlpf {
 
   //these are defined at model creation time and set the random LSH codebook size
   static constexpr int LSH_BIN_SIZE = 160;
-  static constexpr int NUM_MAX_ELEMENTS_BATCH = 200*LSH_BIN_SIZE;
+  static constexpr int NUM_MAX_ELEMENTS_BATCH = 200 * LSH_BIN_SIZE;
 
   //In CPU mode, we only want to evaluate each event separately
   static constexpr int BATCH_SIZE = 1;
@@ -61,7 +61,13 @@ namespace reco::mlpf {
 
   int argMax(std::vector<float> const& vec);
 
-  reco::PFCandidate makeCandidate(int pred_pid, int pred_charge, float pred_pt, float pred_eta, float pred_sin_phi, float pred_cos_phi, float pred_e);
+  reco::PFCandidate makeCandidate(int pred_pid,
+                                  int pred_charge,
+                                  float pred_pt,
+                                  float pred_eta,
+                                  float pred_sin_phi,
+                                  float pred_cos_phi,
+                                  float pred_e);
 
   const std::vector<const reco::PFBlockElement*> getPFElements(const reco::PFBlockCollection& blocks);
 

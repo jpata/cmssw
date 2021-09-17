@@ -203,7 +203,13 @@ namespace reco::mlpf {
     return static_cast<int>(std::distance(vec.begin(), max_element(vec.begin(), vec.end())));
   }
 
-  reco::PFCandidate makeCandidate(int pred_pid, int pred_charge, float pred_pt, float pred_eta, float pred_sin_phi, float pred_cos_phi, float pred_e) {
+  reco::PFCandidate makeCandidate(int pred_pid,
+                                  int pred_charge,
+                                  float pred_pt,
+                                  float pred_eta,
+                                  float pred_sin_phi,
+                                  float pred_cos_phi,
+                                  float pred_e) {
     float pred_phi = std::atan2(pred_sin_phi, pred_cos_phi);
 
     //set the charge to +1 or -1 for PFCandidates that are charged, according to the sign of the predicted charge
@@ -215,23 +221,22 @@ namespace reco::mlpf {
     math::PtEtaPhiELorentzVectorD p4(pred_pt, pred_eta, pred_phi, pred_e);
 
     reco::PFCandidate::ParticleType particleType(reco::PFCandidate::X);
-    if (pred_pid==211)
+    if (pred_pid == 211)
       particleType = reco::PFCandidate::h;
-    else if (pred_pid==130)
+    else if (pred_pid == 130)
       particleType = reco::PFCandidate::h0;
-    else if (pred_pid==22)
+    else if (pred_pid == 22)
       particleType = reco::PFCandidate::gamma;
-    else if (pred_pid==11)
+    else if (pred_pid == 11)
       particleType = reco::PFCandidate::e;
-    else if (pred_pid==13)
+    else if (pred_pid == 13)
       particleType = reco::PFCandidate::mu;
-    else if (pred_pid==1)
+    else if (pred_pid == 1)
       particleType = reco::PFCandidate::h_HF;
-    else if (pred_pid==2)
+    else if (pred_pid == 2)
       particleType = reco::PFCandidate::egamma_HF;
 
-    reco::PFCandidate cand(
-        charge, math::XYZTLorentzVector(p4.X(), p4.Y(), p4.Z(), p4.E()), particleType);
+    reco::PFCandidate cand(charge, math::XYZTLorentzVector(p4.X(), p4.Y(), p4.Z(), p4.E()), particleType);
     //cand.setPdgId(pred_pid);
     //cand.setCharge(charge);
 
@@ -265,15 +270,15 @@ namespace reco::mlpf {
     const reco::PFBlockElement* elem = elems[ielem_originator];
 
     //set the track ref in case the originating element was a track
-    if (std::abs(cand.pdgId())==211 && elem->type()==reco::PFBlockElement::TRACK && elem->trackRef().isNonnull()) {
+    if (std::abs(cand.pdgId()) == 211 && elem->type() == reco::PFBlockElement::TRACK && elem->trackRef().isNonnull()) {
       const auto* eltTrack = dynamic_cast<const reco::PFBlockElementTrack*>(elem);
       cand.setTrackRef(eltTrack->trackRef());
       cand.setVertex(eltTrack->trackRef()->vertex());
-      cand.setPositionAtECALEntrance(eltTrack->positionAtECALEntrance()); 
+      cand.setPositionAtECALEntrance(eltTrack->positionAtECALEntrance());
     }
-    
+
     //set the muon ref
-    if (std::abs(cand.pdgId())==13) {
+    if (std::abs(cand.pdgId()) == 13) {
       const auto* eltTrack = dynamic_cast<const reco::PFBlockElementTrack*>(elem);
       const auto& muonRef = eltTrack->muonRef();
       cand.setTrackRef(muonRef->track());
@@ -281,8 +286,8 @@ namespace reco::mlpf {
       cand.setVertex(muonRef->track()->vertex());
       cand.setMuonRef(muonRef);
     }
-    
-    if (std::abs(cand.pdgId())==11 && elem->type()==reco::PFBlockElement::GSF) {
+
+    if (std::abs(cand.pdgId()) == 11 && elem->type() == reco::PFBlockElement::GSF) {
       const auto* eltTrack = dynamic_cast<const reco::PFBlockElementGsfTrack*>(elem);
       const auto& ref = eltTrack->GsftrackRef();
       cand.setGsfTrackRef(ref);
