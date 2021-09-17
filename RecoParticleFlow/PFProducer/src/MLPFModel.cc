@@ -279,6 +279,12 @@ namespace reco::mlpf {
       cand.setVertex(muonRef->track()->vertex());
       cand.setMuonRef(muonRef);
     }
+    
+    if (std::abs(cand.pdgId())==11 && elem->type()==reco::PFBlockElement::GSF) {
+      const auto* eltTrack = dynamic_cast<const reco::PFBlockElementGsfTrack*>(elem);
+      const auto& ref = eltTrack->GsftrackRef();
+      cand.setGsfTrackRef(ref);
+    }
   }
 
 };  // namespace reco::mlpf

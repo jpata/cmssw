@@ -9,6 +9,8 @@
 
 #include "DataFormats/ParticleFlowReco/interface/PFBlockElementTrack.h"
 
+#include "onnxruntime/core/session/onnxruntime_cxx_api.h"
+
 using namespace cms::Ort;
 
 //use this to switch on detailed print statements in MLPF
@@ -167,7 +169,17 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
 }
 
 std::unique_ptr<ONNXRuntime> MLPFProducer::initializeGlobalCache(const edm::ParameterSet& params) {
-  return std::make_unique<ONNXRuntime>(params.getParameter<edm::FileInPath>("model_path").fullPath());
+  ::Ort::SessionOptions sess_opts;
+  
+  OrtCUDAProviderOptions cuda_options;
+  cuda_options.device_id = 0;
+  cuda_options.arena_extend_strategy = 0;
+  cuda_options.gpu_mem_limit = 2 * 1024 * 1024 * 1024;
+  cuda_options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearch::EXHAUSTIVE;
+  cuda_options.do_copy_in_default_stream = 1;
+  sess_opts.AppendExecutionProvider_CUDA(&cuda_options);
+
+  return std::make_unique<ONNXRuntime>(params.getParameter<edm::FileInPath>("model_path").fullPath(), &sess_opts);
 }
 
 void MLPFProducer::globalEndJob(const ONNXRuntime* cache) {}
