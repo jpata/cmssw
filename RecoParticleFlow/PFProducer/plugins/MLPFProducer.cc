@@ -169,17 +169,7 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
 }
 
 std::unique_ptr<ONNXRuntime> MLPFProducer::initializeGlobalCache(const edm::ParameterSet& params) {
-  ::Ort::SessionOptions sess_opts;
-  
-  OrtCUDAProviderOptions cuda_options;
-  cuda_options.device_id = 0;
-  cuda_options.arena_extend_strategy = 0;
-  cuda_options.gpu_mem_limit = 2 * 1024 * 1024 * 1024;
-  cuda_options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearch::EXHAUSTIVE;
-  cuda_options.do_copy_in_default_stream = 1;
-  sess_opts.AppendExecutionProvider_CUDA(&cuda_options);
-
-  return std::make_unique<ONNXRuntime>(params.getParameter<edm::FileInPath>("model_path").fullPath(), &sess_opts);
+  return std::make_unique<ONNXRuntime>(params.getParameter<edm::FileInPath>("model_path").fullPath());
 }
 
 void MLPFProducer::globalEndJob(const ONNXRuntime* cache) {}
@@ -187,7 +177,7 @@ void MLPFProducer::globalEndJob(const ONNXRuntime* cache) {}
 void MLPFProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("src", edm::InputTag("particleFlowBlock"));
-  desc.add<edm::FileInPath>("model_path", edm::FileInPath("RecoParticleFlow/PFProducer/data/mlpf/mlpf_2021_06_28.onnx"));
+  desc.add<edm::FileInPath>("model_path", edm::FileInPath("RecoParticleFlow/PFProducer/data/mlpf/mlpf_2021_09_20.onnx"));
   descriptions.addWithDefaultLabel(desc);
 }
 
