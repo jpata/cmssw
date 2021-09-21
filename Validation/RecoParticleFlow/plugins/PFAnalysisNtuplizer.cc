@@ -234,6 +234,7 @@ private:
   vector<float> element_eta_;
   vector<float> element_phi_;
   vector<float> element_energy_;
+  vector<float> element_corr_energy_;
   vector<float> element_eta_ecal_;
   vector<float> element_phi_ecal_;
   vector<float> element_eta_hcal_;
@@ -246,7 +247,8 @@ private:
   vector<float> element_muon_dt_hits_;
   vector<float> element_muon_csc_hits_;
   vector<float> element_muon_type_;
-  vector<float> element_gsf_brem_sc_energy_;
+  vector<float> element_cluster_flags_;
+  vector<float> element_gsf_electronseed_trkorecal_;
   vector<float> element_num_hits_;
 
   vector<int> element_distance_i_;
@@ -385,6 +387,7 @@ PFAnalysis::PFAnalysis(const edm::ParameterSet& iConfig) {
   t_->Branch("element_eta", &element_eta_);
   t_->Branch("element_phi", &element_phi_);
   t_->Branch("element_energy", &element_energy_);
+  t_->Branch("element_corr_energy", &element_corr_energy_);
   t_->Branch("element_eta_ecal", &element_eta_ecal_);
   t_->Branch("element_phi_ecal", &element_phi_ecal_);
   t_->Branch("element_eta_hcal", &element_eta_hcal_);
@@ -397,7 +400,8 @@ PFAnalysis::PFAnalysis(const edm::ParameterSet& iConfig) {
   t_->Branch("element_muon_dt_hits", &element_muon_dt_hits_);
   t_->Branch("element_muon_csc_hits", &element_muon_csc_hits_);
   t_->Branch("element_muon_type", &element_muon_type_);
-  t_->Branch("element_gsf_brem_sc_energy", &element_gsf_brem_sc_energy_);
+  t_->Branch("element_cluster_flags", &element_cluster_flags_);
+  t_->Branch("element_gsf_electronseed_trkorecal", &element_gsf_electronseed_trkorecal_);
   t_->Branch("element_num_hits", &element_num_hits_);
 
   //Distance matrix between PF elements
@@ -518,6 +522,7 @@ void PFAnalysis::clearVariables() {
   element_eta_.clear();
   element_phi_.clear();
   element_energy_.clear();
+  element_corr_energy_.clear();
   element_eta_ecal_.clear();
   element_phi_ecal_.clear();
   element_eta_hcal_.clear();
@@ -530,7 +535,8 @@ void PFAnalysis::clearVariables() {
   element_muon_dt_hits_.clear();
   element_muon_csc_hits_.clear();
   element_muon_type_.clear();
-  element_gsf_brem_sc_energy_.clear();
+  element_cluster_flags_.clear();
+  element_gsf_electronseed_trkorecal_.clear();
   element_num_hits_.clear();
 
   element_distance_i_.clear();
@@ -751,6 +757,7 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     float eta = 0.0;
     float phi = 0.0;
     float energy = 0.0;
+    float corr_energy = 0.0;
     float trajpoint = 0.0;
     float eta_ecal = 0.0;
     float phi_ecal = 0.0;
@@ -762,7 +769,8 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     float muon_dt_hits = 0.0;
     float muon_csc_hits = 0.0;
     float muon_type = 0.0;
-    float gsf_brem_sc_energy = 0.0;
+    float cluster_flags = 0.0;
+    float gsf_electronseed_trkorecal = 0.0;
     float num_hits = 0.0;
 
     if (type == reco::PFBlockElement::TRACK) {
@@ -803,6 +811,7 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     } else if (type == reco::PFBlockElement::BREM) {
       const auto* orig2 = (const reco::PFBlockElementBrem*)&orig;
       const auto& ref = orig2->GsftrackRef();
+      trajpoint = orig2->indTrajPoint();
       if (ref.isNonnull()) {
         deltap = orig2->DeltaP();
         sigmadeltap = orig2->SigmaDeltaP();
@@ -813,20 +822,21 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
         eta = ref->eta();
         phi = ref->phi();
         energy = ref->p();
-        trajpoint = orig2->indTrajPoint();
         charge = ref->charge();
       }
 
       const auto& gsfextraref = ref->extra();
       if (gsfextraref.isAvailable() && gsfextraref->seedRef().isAvailable()) {
         reco::ElectronSeedRef seedref = gsfextraref->seedRef().castTo<reco::ElectronSeedRef>();
-        if (seedref.isAvailable() && seedref->isEcalDriven()) {
-          reco::SuperClusterRef scref = seedref->caloCluster().castTo<reco::SuperClusterRef>();
-          if (scref.isNonnull()) {
-            gsf_brem_sc_energy = scref->energy();
+        if (seedref.isAvailable()) {
+          if (seedref->isEcalDriven()) {
+            gsf_electronseed_trkorecal = 1.0;
+          }
+          else if (seedref->isTrackerDriven()) {
+            gsf_electronseed_trkorecal = 2.0;
           }
         }
-      };
+      }
 
     } else if (type == reco::PFBlockElement::GSF) {
       //requires to keep GsfPFRecTracks
@@ -854,10 +864,12 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       const auto& gsfextraref = ref->extra();
       if (gsfextraref.isAvailable() && gsfextraref->seedRef().isAvailable()) {
         reco::ElectronSeedRef seedref = gsfextraref->seedRef().castTo<reco::ElectronSeedRef>();
-        if (seedref.isAvailable() && seedref->isEcalDriven()) {
-          reco::SuperClusterRef scref = seedref->caloCluster().castTo<reco::SuperClusterRef>();
-          if (scref.isNonnull()) {
-            gsf_brem_sc_energy = scref->energy();
+        if (seedref.isAvailable()) {
+          if (seedref->isEcalDriven()) {
+            gsf_electronseed_trkorecal = 1.0;
+          }
+          else if (seedref->isTrackerDriven()) {
+            gsf_electronseed_trkorecal = 2.0;
           }
         }
       };
@@ -868,12 +880,15 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
                type == reco::PFBlockElement::HFEM) {
       const auto& ref = ((const reco::PFBlockElementCluster*)&orig)->clusterRef();
       if (ref.isNonnull()) {
+        cluster_flags = ref->flags();
         eta = ref->eta();
         phi = ref->phi();
+        pt = ref->pt();
         px = ref->position().x();
         py = ref->position().y();
         pz = ref->position().z();
         energy = ref->energy();
+        corr_energy = ref->correctedEnergy();
         layer = ref->layer();
         depth = ref->depth();
         num_hits = ref->recHitFractions().size();
@@ -881,6 +896,7 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     } else if (type == reco::PFBlockElement::SC) {
       const auto& clref = ((const reco::PFBlockElementSuperCluster*)&orig)->superClusterRef();
       if (clref.isNonnull()) {
+        cluster_flags = clref->flags();
         eta = clref->eta();
         phi = clref->phi();
         px = clref->position().x();
@@ -912,6 +928,7 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     element_eta_.push_back(eta);
     element_phi_.push_back(phi);
     element_energy_.push_back(energy);
+    element_corr_energy_.push_back(corr_energy);
     element_eta_ecal_.push_back(eta_ecal);
     element_phi_ecal_.push_back(phi_ecal);
     element_eta_hcal_.push_back(eta_hcal);
@@ -924,7 +941,8 @@ void PFAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     element_muon_dt_hits_.push_back(muon_dt_hits);
     element_muon_csc_hits_.push_back(muon_csc_hits);
     element_muon_type_.push_back(muon_type);
-    element_gsf_brem_sc_energy_.push_back(gsf_brem_sc_energy);
+    element_cluster_flags_.push_back(cluster_flags);
+    element_gsf_electronseed_trkorecal_.push_back(gsf_electronseed_trkorecal);
     element_num_hits_.push_back(num_hits);
   }
 
