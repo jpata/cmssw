@@ -43,6 +43,7 @@ void MLPFSonicProducer::acquire(edm::Event const& iEvent, edm::EventSetup const&
   const auto& all_elements = getPFElements(blocks);
 
   selected_elements_.clear();
+  num_elements_total_ = 0;
   //unsigned int num_elements_total = 0;
   for (const auto* pelem : all_elements) {
     if (pelem->type() == reco::PFBlockElement::PS1 || pelem->type() == reco::PFBlockElement::PS2) {
@@ -118,15 +119,6 @@ void MLPFSonicProducer::produce(edm::Event& iEvent, edm::EventSetup const& iSetu
 
     //get the most probable class PDGID
     int pred_pid = pdgid_encoding[imax];
-
-#ifdef MLPF_DEBUG
-    std::cout << "ielem=" << ielem << " inputs:";
-    for (unsigned int iprop = 0; iprop < NUM_ELEMENT_FEATURES; iprop++) {
-      std::cout << iprop << "=" << inputs[0][ielem * NUM_ELEMENT_FEATURES + iprop] << " ";
-    }
-    std::cout << std::endl;
-    std::cout << "ielem=" << ielem << " pred: pid=" << pred_pid << std::endl;
-#endif
 
     //a particle was predicted for this PFElement, otherwise it was a spectator
     if (pred_pid != 0) {

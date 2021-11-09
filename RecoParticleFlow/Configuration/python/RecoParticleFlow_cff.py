@@ -45,7 +45,9 @@ particleFlowLinks = cms.Sequence(particleFlowLinksTask)
 # for MLPF
 from Configuration.ProcessModifiers.mlpf_cff import mlpf
 from RecoParticleFlow.PFProducer.mlpfProducer_cfi import mlpfProducer
+from RecoParticleFlow.PFProducer.mlPFSonicProducer import mlPFSonicProducer
 mlpf.toReplaceWith(particleFlowTmp, mlpfProducer)
+#mlpf.toReplaceWith(particleFlowTmp, mlPFSonicProducer)
 
 #
 # for phase 2
