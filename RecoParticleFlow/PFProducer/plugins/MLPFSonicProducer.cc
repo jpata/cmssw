@@ -63,8 +63,6 @@ void MLPFSonicProducer::acquire(edm::Event const& iEvent, edm::EventSetup const&
   std::cout << "tensor_size=" << tensor_size << std::endl;
 #endif
 
-  //Fill the input tensor (batch, elems, features) = (1, tensor_size, NUM_ELEMENT_FEATURES)
-  //std::vector<std::vector<float>> inputs(1, std::vector<float>(NUM_ELEMENT_FEATURES * tensor_size, 0.0));
   auto& input = iInput.at("x:0");
   input.setShape(0, tensor_size);
   auto inputdata = input.allocate<float>();
@@ -84,8 +82,7 @@ void MLPFSonicProducer::acquire(edm::Event const& iEvent, edm::EventSetup const&
 
     //copy features to the input array
     for (unsigned int iprop = 0; iprop < NUM_ELEMENT_FEATURES; iprop++) {
-      //inputs[0][ielem * NUM_ELEMENT_FEATURES + iprop] = normalize(props[iprop]);
-      vinputdata.push_back( normalize(props[iprop]) );
+      vinputdata.push_back(normalize(props[iprop]));
     }
     ielem += 1;
   }
@@ -97,12 +94,8 @@ void MLPFSonicProducer::acquire(edm::Event const& iEvent, edm::EventSetup const&
 
 void MLPFSonicProducer::produce(edm::Event& iEvent, edm::EventSetup const& iSetup, Output const& iOutput) {
   using namespace reco::mlpf;
-  //run the GNN inference, given the inputs and the output.
-  //const auto& outputs = globalCache()->run({"x:0"}, inputs, {{1, tensor_size, NUM_ELEMENT_FEATURES}});
-  //const auto& output = outputs[0];
   const auto& output1 = iOutput.begin()->second;
   const auto& outputs = output1.fromServer<float>();
-  //assert(output.size() == tensor_size * NUM_OUTPUT_FEATURES);
 
   std::vector<reco::PFCandidate> pOutputCandidateCollection;
   for (size_t ielem = 0; ielem < num_elements_total_; ielem++) {
