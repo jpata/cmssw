@@ -237,8 +237,8 @@ void MLPFProducer::produce(edm::Event& event, const edm::EventSetup& setup) {
 }
 
 std::unique_ptr<ONNXRuntime> MLPFProducer::initializeGlobalCache(const edm::ParameterSet& params) {
-  auto session_options = ONNXRuntime::defaultSessionOptions(params.getParameter<bool>("use_cuda") ? Backend::cuda : Backend::cpu);
-  return std::make_unique<ONNXRuntime>(params.getParameter<edm::FileInPath>("model_path").fullPath(), &session_options);
+  //auto session_options = ONNXRuntime::defaultSessionOptions(params.getParameter<bool>("use_cuda") ? Backend::cuda : Backend::cpu);
+  return std::make_unique<ONNXRuntime>(params.getParameter<edm::FileInPath>("model_path").fullPath());
 }
 
 void MLPFProducer::globalEndJob(const ONNXRuntime* cache) {}
@@ -248,7 +248,7 @@ void MLPFProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions
   desc.add<edm::InputTag>("src", edm::InputTag("particleFlowBlock"));
   desc.add<edm::FileInPath>("model_path",
                             edm::FileInPath("RecoParticleFlow/PFProducer/data/mlpf/"
-                                            "mlpf_5M_attn2x3x256_bm5_relu_checkpoint10_pudisc_1xa100_fp32_fused.onnx"));
+                                            "mlpf_5M_attn2x3x256_bm5_relu_checkpoint10_pudisc_1xa100_fp32_unfused_op14.onnx"));
   desc.add<bool>("use_cuda", false);
   descriptions.addWithDefaultLabel(desc);
 }

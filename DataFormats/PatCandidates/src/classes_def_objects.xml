@@ -353,7 +353,7 @@
    <version ClassVersion="3" checksum="3320406063"/>
   </class>
   <class name="pat::PackedCandidate" ClassVersion="37">
-   <version ClassVersion="37" checksum="3598984192"/>
+   <version ClassVersion="37" checksum="2109332344"/>
    <version ClassVersion="36" checksum="1018281065"/>
    <version ClassVersion="35" checksum="2065846728"/>
    <version ClassVersion="34" checksum="3953181632"/>
